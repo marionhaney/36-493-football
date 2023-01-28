@@ -9,4 +9,7 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+init.data = read.csv("Initial_Play_-_By_-_Play.csv")
+```
 
