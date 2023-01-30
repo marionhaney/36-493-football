@@ -5,12 +5,14 @@ date: "2023-01-28"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
 ```{r}
+## Data initialization
+
 init.data = read.csv("Initial_Play_-_By_-_Play.csv")
 
 # convert character variables to factor
@@ -21,6 +23,12 @@ init.data[factor.vars] = lapply(init.data[factor.vars], factor)
 names(init.data) = tolower(names(init.data))
 names(init.data)[1] = "play"
 
+head(init.data)
+```
+
+```{r}
+## Cleaning
+
 # creating game ID
 first.plays = which(init.data$play==1)
 init.data$game = length(first.plays)
@@ -29,5 +37,13 @@ for (i in 1:(length(first.plays)-1)) {
   last = first.plays[i+1]-1
   init.data$game[first:last] = i
 }
+
+# fixing yards to endzone
+negative.yds = init.data$yard.ln < 0
+na.yds = is.na(negative.yds)
+negative.yds[na.yds] = FALSE
+init.data[negative.yds, "yard.ln"] = init.data[negative.yds, "yard.ln"] + 100
+names(init.data)[5] = "yds.to.endzone"
 ```
+
 
