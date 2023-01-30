@@ -44,6 +44,13 @@ na.yds = is.na(negative.yds)
 negative.yds[na.yds] = FALSE
 init.data[negative.yds, "yard.ln"] = init.data[negative.yds, "yard.ln"] + 100
 names(init.data)[5] = "yds.to.endzone"
+
+# creating drive ID
+k.play.types = unique(init.data[init.data$odk == "K", ]$play.type)
+num.games = max(init.data$game)
+for (i in 1:num.games) {
+  ind.game = init.data[init.data$game == i, ]
+}
 ```
 
 
