@@ -1,15 +1,33 @@
 ---
 title: "Data Cleaning"
-author: "Eli Cohen"
+author: "Eli Cohen, Sarah Tandean"
 date: "2023-01-28"
 output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
 ```
 
 ```{r}
 init.data = read.csv("Initial_Play_-_By_-_Play.csv")
+
+# convert character variables to factor
+factor.vars = c("ODK", "RESULT", "PLAY.TYPE")
+init.data[factor.vars] = lapply(init.data[factor.vars], factor)
+
+# renaming variables for convenience
+names(init.data) = tolower(names(init.data))
+names(init.data)[1] = "play"
+
+# creating game ID
+first.plays = which(init.data$play==1)
+init.data$game = length(first.plays)
+for (i in 1:(length(first.plays)-1)) {
+  first = first.plays[i]
+  last = first.plays[i+1]-1
+  init.data$game[first:last] = i
+}
 ```
 
