@@ -1,0 +1,489 @@
+---
+title: "CMU Sports Analysis"
+author: "Jordan Gilbert"
+date: "8/23/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+```
+
+```{r}
+# url to all D3 games of particular year in particular week
+
+url = "https://www.d3football.com/scoreboard/2022/composite?view=1"
+
+# schedule of that week and year
+schedule = read_html(url, as.data.frame = TRUE, stringsAsFactors = TRUE)
+x = schedule %>% html_nodes("table") %>% .[[1]]
+
+# schedule as table
+fullSchedule = x %>% html_table(fill = TRUE)
+
+# all links on table
+allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
+```
+
+```{r}
+# links to play by play
+links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; end = "?view=plays";
+  adding = paste(begin, x, sep = ""); ending = paste(adding, end, sep = "");
+  return(ending)}))
+```
+
+```{r}
+## game series
+#series = head(links, 1)
+#
+## play by play of game
+#gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
+#y = gameSeries %>% html_nodes("table") %>% .[[3]]
+#
+## play by play as table
+#game = y %>% html_table(fill = TRUE)
+#colnames(game) = c("Situation", "Play")
+##print(game)
+#
+## getting teams, location, date, time
+#setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
+#setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
+#setting = str_c(setting, collapse = "")
+#setting = unlist(str_split(setting, "  "))
+#teamsLocation = setting[2]
+#teamsLocation = unlist(str_split(teamsLocation, " - "))
+#teams = teamsLocation[1]
+#teams = unlist(str_split(teams, " at "))
+#awayTeam = trimws(teams[1], which = "left")
+#homeTeam = teams[2]
+#location = teamsLocation[2]
+#dateTime = setting[3]
+#dateTime = unlist(str_split(dateTime, " - "))
+#date = dateTime[1]
+#time = dateTime[2]
+#
+## getting abbreviations for the teams
+#for (i in 3:5) {
+#  startOfGame = game[i,]
+#  if (!(is.na(str_extract(startOfGame$Play, "ball")))) {
+#      awayAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
+#      awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
+#      awayAbb = str_c(awayAbb, collapse = "")
+#      homeAbb = gsub(".*on (.+),.*", "\\1", startOfGame$Play)
+#      homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
+#      homeAbb = str_c(homeAbb, collapse = "")
+#      break
+#    }
+#}
+```
+
+```{r}
+gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb) {
+  downs = c("1", "2", "3", "4", "OT")
+  quarter = list()
+  possession = list()
+  down = list()
+  distancetoGo = list()
+  distancetoGoal = list()
+  playType = list()
+  netYards = list()
+  scoreHome = list()
+  scoreAway = list()
+  Outcome = list()
+  numDrives = list()
+  totalPlays = list()
+  binaryPointsScored = list()
+  binaryCompletedPass = list()
+  binaryIncompletePass = list()
+  binaryRun = list()
+  binaryTouchdown = list()
+  binaryFieldGoal = list()
+  binaryPenalty = list()
+  binaryPunt = list()
+  binarySack = list()
+  binaryInterception = list()
+  binarySafety = list()
+  binaryFumble = list()
+  binaryExtraPoint = list()
+  currentQuarter = NULL
+  lastPossession = "NULL"
+  currentPossession = NULL
+  driveNumberAway = 0
+  driveNumberHome = 0
+  driveNumber = 0
+  numberOfPlaysAway = 0
+  numberOfPlaysHome = 0
+  numPlays = 0
+  
+  for (i in 1:nrow(game)) {
+    # Binary Outcomes
+    is.pointsScored = FALSE
+    is.completedPass = FALSE
+    is.incompletePass = FALSE
+    is.run = FALSE
+    is.touchdown = FALSE
+    is.fieldGoal = FALSE
+    is.penalty = FALSE
+    is.punt = FALSE
+    is.sack = FALSE
+    is.intercepted = FALSE
+    is.safety = FALSE
+    is.fumble = FALSE
+    is.extraPoint = FALSE
+    
+    # Information about Game
+    situation = game$Situation[i]
+    if (situation == "") {
+      situation = game$Situation[i-1]
+    }
+    play = game$Play[i]
+    startsWith = substr(situation, 1, 1)
+    
+    # Gets Quarter of the Game
+    if (nchar(situation) <= 3 && startsWith %in% downs) {
+      currentQuarter = situation
+      # no other information, so skip
+      next
+    }
+    
+    # Gets Possession at Time
+    if (str_detect(situation, "[0-1][0-9]:[0-5][0-9]") & !str_detect(situation, "elapsed")) {
+      currentPossession = sub(" at.*", "", situation)
+      # update drive number and possession
+      if (lastPossession != currentPossession) {
+        if (currentPossession == homeTeam) {
+          driveNumberHome = driveNumberHome + 1
+          driveNumber = driveNumberHome
+        }
+        else {
+          driveNumberAway = driveNumberAway + 1
+          driveNumber = driveNumberAway
+        }
+        lastPossession = currentPossession
+      }
+      # no other information, so skip
+      next
+    }
+    
+    # Looks at columns with plays only
+    if (!(grepl("[1-4][(st)|(nd)|(rd)|(th)]", substr(situation, 1, 3)))) {
+      # has no wanted information, so skip
+      next
+    }
+    if (situation == play) {
+      # has no wanted information, so skip
+      next
+    }
+    
+    # If just update on score, skip
+    if (grepl("([[:alpha:]]|[[:punct:]]|[[:space:]])+ [[:digit:]]+, ([[:alpha:]]|[[:punct:]]|[[:space:]])+ [[:digit:]]", play)) {
+      # has no wanted information, so skip
+      next
+    }
+    
+    # if recap of field position, skip
+    if (grepl("[1-4][[:alpha:]]{2} and [[:digit:]]+.", play)) {
+      # has no wanted information, so skip
+      next
+    }
+    
+    # Plays with information
+    if (nchar(situation) >= 25 && startsWith %in% downs) {
+      
+      # down
+      currentDown = startsWith
+      # distance to first down
+      currentDistanceToGo = gsub(".*and (.+) at.*", "\\1", situation)
+      
+      if (!(is.na(str_extract(play, "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|QB)")))) {
+        # has no wanted information, so skip
+        next
+      }
+      
+      # abbreviation of location on field
+      abb = gsub(".*at (.+)", "\\1", situation)
+      lets = unlist(str_extract_all(abb, "[[:alpha:]]"))
+      toGoal = (unlist(str_extract_all(abb, "[[:digit:]]")))
+      abb = str_c(lets, collapse = "")
+      toGoal = as.numeric(str_c(toGoal, collapse = ""))
+      # get distance from goal
+      if (currentPossession == homeTeam | str_detect(str_to_lower(currentPossession), str_to_lower(homeTeam)) | str_detect(str_to_lower(homeTeam), str_to_lower(currentPossession))) {
+        if (abb == homeAbb) {
+          currentDistanceToGoal = as.character(100 - toGoal)
+        }
+        else {
+          currentDistanceToGoal = as.character(toGoal)
+        }
+      }
+      else {
+      #else if (currentPossession == awayTeam | str_detect(str_to_lower(currentPossession), str_to_lower(awayTeam))) {
+        if (abb == awayAbb) {
+          currentDistanceToGoal = as.character(100 - toGoal)
+        }
+        else {
+          currentDistanceToGoal = as.character(toGoal)
+        }
+      }
+      
+      # get play
+      currentPlay = str_extract(play, "(rush|pass|PENALTY|fumble|sacked|punt|field goal|kick)")
+      if (is.na(currentPlay)) {
+        print(play)
+        print(game$Play[i-1])
+        yards = "Error"
+      }
+      if (str_detect(play, "PENALTY")) {
+        yards = "Penalty"
+        is.penalty = TRUE
+      }
+      if (str_detect(play, "flea-flicker")) {
+        yards = "Error"
+      }
+      else if (currentPlay == "kick") {
+        yards = "Extra Point Attempt"
+      }
+      else if (currentPlay == "rush") {
+        if (!(is.na(str_extract(play, "no gain")))) {
+          yards = "0"
+        }
+        else {
+          yards = (sub(".*for (.+) yard.*", "\\1", play))
+          if (!(is.na(str_extract(yards, "loss")))) {
+            yards = gsub(".*of (.+)", "\\1", yards)
+            yards = as.character(as.numeric(yards) * -1)
+          }
+        }
+        is.run = TRUE
+      }
+      else if (currentPlay == "pass") {
+        if (!(is.na(str_extract(play, "incomplete")))) {
+          yards = "0"
+          is.incompletePass = TRUE
+        }
+        else if (!(is.na(str_extract(play, "intercepted")))) {
+          yards = "Intercepted"
+          is.incompletePass = TRUE
+          is.intercepted = TRUE
+        }
+        else {
+          yards = (sub(".*for (.+) yard.*", "\\1", play))
+          if (!(is.na(str_extract(yards, "loss")))) {
+            yards = gsub(".*of (.+)", "\\1", yards)
+            yards = as.character(as.numeric(yards) * -1)
+          }
+          is.completedPass = TRUE
+        }
+        
+      }
+      else if (currentPlay == "fumble") {
+        yards = "Fumble"
+        is.fumble = TRUE
+      }
+      else if (currentPlay == "punt") {
+        yards = "Punt"
+        is.punt = TRUE
+      }
+      else if (currentPlay == "field goal") {
+        yards = "Field Goal"
+        is.fieldGoal = TRUE
+      }
+      else if (currentPlay == "sacked") {
+        yards = (sub(".*for (.+) yard.*", "\\1", play))
+        if (!(is.na(str_extract(yards, "loss")))) {
+          yards = gsub(".*of (.+)", "\\1", yards)
+          yards = as.character(as.numeric(yards) * -1)
+        }
+        is.sack = TRUE
+      }
+      
+      # get outcome
+      play = tolower(play)
+      touch = !(is.na(str_extract(play, "(touchdown|penalty|fumble|sacked|punt|incomplete|field goal|intercepted|kick|safety)")))
+      if (touch) {
+        touch = str_extract_all(play, "(touchdown|penalty|fumble|sacked|punt|incomplete|field goal|intercepted|kick|safety)")
+        if (touch == "touchdown") {
+          outcome = "Touchdown"
+          is.touchdown = TRUE
+          is.pointsScored = TRUE
+        }
+        else if (touch == "penalty") {
+          outcome = "Penalty"
+          is.penalty = TRUE
+        }
+        else if (touch == "fumble") {
+          outcome = "Fumble"
+          is.fumble = TRUE
+        }
+        else if (touch == "sacked") {
+          outcome = "Sack"
+          is.sack = TRUE
+        }
+        else if (touch == "punt") {
+          outcome = "Punt"
+          is.punt = TRUE
+        }
+        else if (touch == "incomplete") {
+          outcome = "Incomplete Pass"
+          is.incompletePass = TRUE
+        }
+        else if (touch == "field goal") {
+          if (!(is.na(str_extract(play, "missed")))) {
+            outcome = "Missed Field Goal"         
+          }
+          else {
+            outcome = "Field Goal"
+            is.pointsScored = TRUE
+          }
+          is.fieldGoal = TRUE
+        }
+        else if (touch == "intercepted") {
+          outcome = "Interception"
+          is.intercepted = TRUE
+        }
+        else if (touch == "kick") {
+          if (!(is.na(str_extract(play, "missed")))) {
+            outcome = "Missed Extra Point Attempt"
+          }
+          else {
+            outcome = "Made Extra Point Attempt"
+            is.pointsScored = TRUE
+          }
+          is.extraPoint = TRUE
+        }
+        else if (touch == "safety") {
+          outcome = "Safety"
+          is.safety = TRUE
+        }
+        else {
+          outcome = str_to_lower(paste(unlist(touch), collapse = ", "))
+          if (str_detect(outcome, "fumble")) {
+            is.fumble = TRUE
+          }
+          if (str_detect(outcome, "penalty")) {
+            is.penalty = TRUE
+          }
+          if (str_detect(outcome, "safety")) {
+            is.safety = TRUE
+          }
+          if (str_detect(outcome, "kick")) {
+            is.extraPoint = TRUE
+            if (str_detect(play, "attempt good")) {
+              is.pointsScored = TRUE
+            }
+          }
+        }
+      }
+      else {
+        outcome = ""
+      }
+      
+      # total number of plays
+      if (currentPossession == homeTeam) {
+        if (!(currentPlay == "PENALTY" | str_detect(play, "NO PLAY")) | str_detect(play, "flea-flicker")) {
+          numberOfPlaysHome = numberOfPlaysHome + 1
+          numPlays = numberOfPlaysHome
+        }
+      }
+      else {
+        if (!(currentPlay == "PENALTY" | str_detect(play, "NO PLAY")) | str_detect(play, "flea-flicker")) {
+          numberOfPlaysAway = numberOfPlaysAway + 1
+          numPlays = numberOfPlaysAway
+        }
+      }
+    }
+    #print(c(play))
+    
+    quarter = c(quarter, list(currentQuarter))
+    possession = c(possession, list(currentPossession))
+    down = c(down, list(currentDown))
+    distancetoGo = c(distancetoGo, list(currentDistanceToGo))
+    playType = c(playType, list(currentPlay))
+    netYards = c(netYards, list(yards))
+    Outcome = c(Outcome, list(outcome))
+    distancetoGoal = c(distancetoGoal, list(currentDistanceToGoal))
+    numDrives = c(numDrives, list(driveNumber))
+    totalPlays = c(totalPlays, list(numPlays))
+    binaryPointsScored = c(binaryPointsScored, list(is.pointsScored))
+    binaryCompletedPass = c(binaryCompletedPass, list(is.completedPass))
+    binaryIncompletePass = c(binaryIncompletePass, list(is.incompletePass))
+    binaryRun = c(binaryRun, list(is.run))
+    binaryTouchdown = c(binaryTouchdown, list(is.touchdown))
+    binaryFieldGoal = c(binaryFieldGoal, list(is.fieldGoal))
+    binaryPenalty = c(binaryPenalty, list(is.penalty))
+    binaryPunt = c(binaryPunt, list(is.punt))
+    binarySack = c(binarySack, list(is.sack))
+    binaryInterception = c(binaryInterception, list(is.intercepted))
+    binarySafety = c(binarySafety, list(is.safety))
+    binaryFumble = c(binaryFumble, list(is.fumble))
+    binaryExtraPoint = c(binaryExtraPoint, list(is.extraPoint))
+  }
+  
+  PlaybyPlayTable = data.frame(Date = date, Time = time, Location = location, "Home Team" = homeTeam, "Home Team Abbreviation" = homeAbb, "Away Team" = awayTeam, "Away Team Abbreviation" = awayAbb, Quarter = unlist(quarter), "Team Possession" = unlist(possession), Down = unlist(down), "Distance to First Down" = unlist(distancetoGo), "Distance to Touchdown" = unlist(distancetoGoal), "Play Type" = unlist(playType), "Yards" = unlist(netYards), Outcome = unlist(Outcome), "Points Scored?" = unlist(binaryPointsScored), "Completed Pass?" = unlist(binaryCompletedPass), "Incomplete Pass?" = unlist(binaryIncompletePass), "Run?" = unlist(binaryRun), "Touchdown?" = unlist(binaryTouchdown), "Field Goal?" = unlist(binaryFieldGoal), "Penalty?" = unlist(binaryPenalty), "Punt?" = unlist(binaryPunt), "Sack?" = unlist(binaryPunt), "Interception?" = unlist(binaryInterception), "Safety?" = unlist(binarySafety), "Fumble?" = unlist(binaryFumble), "Extra Point?" = unlist(binaryExtraPoint), "Drive Number" = unlist(numDrives), "Team Play Number" = unlist(totalPlays))
+  
+  return(PlaybyPlayTable)
+}
+```
+
+```{r}
+bigBadTable = NULL
+for (series in links) {
+  # play by play of game
+  gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
+  y = gameSeries %>% html_nodes("table") %>% .[[3]]
+  
+  # play by play as table
+  game = y %>% html_table(fill = TRUE)
+  colnames(game) = c("Situation", "Play")
+  #print(game)
+  
+  # getting teams, location, date, time
+  setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
+  setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
+  setting = str_c(setting, collapse = "")
+  setting = unlist(str_split(setting, "  "))
+  teamsLocation = setting[2]
+  teamsLocation = unlist(str_split(teamsLocation, " - "))
+  teams = teamsLocation[1]
+  teams = unlist(str_split(teams, " at "))
+  awayTeam = trimws(teams[1], which = "left")
+  homeTeam = teams[2]
+  location = teamsLocation[2]
+  dateTime = setting[3]
+  dateTime = unlist(str_split(dateTime, " - "))
+  date = dateTime[1]
+  time = dateTime[2]
+  
+  #print(teams)
+  if (homeTeam != "Carnegie Mellon" && awayTeam != "Carnegie Mellon") {
+    print(teams)
+    next
+  }
+  
+  # getting abbreviations for the teams
+  for (i in 3:5) {
+    startOfGame = game[i,]
+    if (!(is.na(str_extract(startOfGame$Play, "ball on")))) {
+        awayAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
+        awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
+        awayAbb = str_c(awayAbb, collapse = "")
+        homeAbb = gsub(".*on (.+)([[:punct:]])(.*)", "\\1", startOfGame$Play)
+        homeAbb = gsub("[[:punct:]].*", "\\1", homeAbb)
+        homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
+        homeAbb = str_c(homeAbb, collapse = "")
+        break
+      }
+  }
+  playByPlay = gamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
+  if (is.null(bigBadTable)) {
+    bigBadTable = playByPlay
+  }
+  else {
+    bigBadTable = rbind(bigBadTable, playByPlay)
+  }
+}
+print(bigBadTable)
+```
+
