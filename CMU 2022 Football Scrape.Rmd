@@ -1,7 +1,7 @@
 ---
-title: "CMU Sports Analysis"
-author: "Jordan Gilbert"
-date: "8/23/2021"
+title: "CMU 2022 Football Scrape"
+author: "Jordan Gilbert, Marion Haney"
+date: "2/1/2023"
 output: pdf_document
 ---
 
@@ -12,6 +12,8 @@ require(magrittr)
 require(stringr)
 ```
 
+
+Get the main URL of all games during WK and season YEAR:
 ```{r}
 # url to all D3 games of particular year in particular week
 
@@ -28,6 +30,8 @@ fullSchedule = x %>% html_table(fill = TRUE)
 allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
 ```
 
+
+Get links to play by play lines:
 ```{r}
 # links to play by play
 links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; end = "?view=plays";
@@ -35,51 +39,8 @@ links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com
   return(ending)}))
 ```
 
-```{r}
-## game series
-#series = head(links, 1)
-#
-## play by play of game
-#gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
-#y = gameSeries %>% html_nodes("table") %>% .[[3]]
-#
-## play by play as table
-#game = y %>% html_table(fill = TRUE)
-#colnames(game) = c("Situation", "Play")
-##print(game)
-#
-## getting teams, location, date, time
-#setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
-#setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
-#setting = str_c(setting, collapse = "")
-#setting = unlist(str_split(setting, "  "))
-#teamsLocation = setting[2]
-#teamsLocation = unlist(str_split(teamsLocation, " - "))
-#teams = teamsLocation[1]
-#teams = unlist(str_split(teams, " at "))
-#awayTeam = trimws(teams[1], which = "left")
-#homeTeam = teams[2]
-#location = teamsLocation[2]
-#dateTime = setting[3]
-#dateTime = unlist(str_split(dateTime, " - "))
-#date = dateTime[1]
-#time = dateTime[2]
-#
-## getting abbreviations for the teams
-#for (i in 3:5) {
-#  startOfGame = game[i,]
-#  if (!(is.na(str_extract(startOfGame$Play, "ball")))) {
-#      awayAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
-#      awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
-#      awayAbb = str_c(awayAbb, collapse = "")
-#      homeAbb = gsub(".*on (.+),.*", "\\1", startOfGame$Play)
-#      homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
-#      homeAbb = str_c(homeAbb, collapse = "")
-#      break
-#    }
-#}
-```
 
+Function to get play by play data:
 ```{r}
 gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb) {
   downs = c("1", "2", "3", "4", "OT")
@@ -210,6 +171,11 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
       abb = str_c(lets, collapse = "")
       toGoal = as.numeric(str_c(toGoal, collapse = ""))
       # get distance from goal
+      if (is.null(currentPossession) || length(currentPossession == 0) || is.na(currentPossession)) {
+        # no possession, coin toss or weird row
+        next
+      } 
+      
       if (currentPossession == homeTeam | str_detect(str_to_lower(currentPossession), str_to_lower(homeTeam)) | str_detect(str_to_lower(homeTeam), str_to_lower(currentPossession))) {
         if (abb == homeAbb) {
           currentDistanceToGoal = as.character(100 - toGoal)
@@ -219,7 +185,6 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
         }
       }
       else {
-      #else if (currentPossession == awayTeam | str_detect(str_to_lower(currentPossession), str_to_lower(awayTeam))) {
         if (abb == awayAbb) {
           currentDistanceToGoal = as.character(100 - toGoal)
         }
@@ -234,7 +199,9 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
         print(play)
         print(game$Play[i-1])
         yards = "Error"
+        currentPlay = "NA"
       }
+      
       if (str_detect(play, "PENALTY")) {
         yards = "Penalty"
         is.penalty = TRUE
@@ -427,8 +394,12 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
 }
 ```
 
+
+
+Create the table:
 ```{r}
 bigBadTable = NULL
+cmuScrapeDone = FALSE
 for (series in links) {
   # play by play of game
   gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
@@ -457,10 +428,16 @@ for (series in links) {
   time = dateTime[2]
   
   #print(teams)
+  # only CMU teams
   if (homeTeam != "Carnegie Mellon" && awayTeam != "Carnegie Mellon") {
     print(teams)
     next
   }
+  # if we already did the CMU scrape, no need to continue
+  if (cmuScrapeDone) { break }
+  
+  cmuScrapeDone = TRUE
+
   
   # getting abbreviations for the teams
   for (i in 3:5) {
@@ -476,6 +453,8 @@ for (series in links) {
         break
       }
   }
+
+  
   playByPlay = gamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
   if (is.null(bigBadTable)) {
     bigBadTable = playByPlay
@@ -484,6 +463,14 @@ for (series in links) {
     bigBadTable = rbind(bigBadTable, playByPlay)
   }
 }
-print(bigBadTable)
+#print(bigBadTable)
 ```
+
+```{r}
+# combining the weeks together
+#df = data.frame(bigBadTable) # run initially then comment out
+#bigBadTable["Home.Team.Abbreviation"] = "RPI"
+#df = rbind(df, data.frame(bigBadTable)) # run for each week
+```
+
 
