@@ -23,6 +23,13 @@ init.data[factor.vars] = lapply(init.data[factor.vars], factor)
 names(init.data) = tolower(names(init.data))
 names(init.data)[1] = "play"
 
+# fixing rounding error for distance
+gn.ls.lagged = lag(init.data$gn.ls)
+dist.lagged = lag(init.data$dist)
+#init.data$dist = dist.lagged - gn.ls.lagged
+
+#head(init.data$dist, 20)
+
 head(init.data)
 ```
 
