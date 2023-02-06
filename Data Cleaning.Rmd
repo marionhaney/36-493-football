@@ -24,13 +24,11 @@ names(init.data) = tolower(names(init.data))
 names(init.data)[1] = "play"
 
 # fixing rounding error for distance
-gn.ls.lagged = lag(init.data$gn.ls)
-dist.lagged = lag(init.data$dist)
-#init.data$dist = dist.lagged - gn.ls.lagged
+for (i in 2:nrow(init.data)) {
+  if (init.data$dn[i]==1 | is.na(init.data$dn[i])) { next }
+  init.data$dist[i] = init.data$dist[i-1] - init.data$gn.ls[i-1]
+}
 
-#head(init.data$dist, 20)
-
-head(init.data)
 ```
 
 ```{r}
@@ -89,7 +87,6 @@ for (i in 1:num.games) {
   init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
   prev.plays = prev.plays + num.plays
 }
-
 ```
 
 
