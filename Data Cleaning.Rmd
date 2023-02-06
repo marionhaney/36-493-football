@@ -60,6 +60,7 @@ drive.starters = c("Fumble", "Interception", "Sack, Fumble")
 drive.enders = c("Punt Rec", "Punt", "Extra Pt.", "Extra Pt. Block", "FG Block",
                  "FG", "2 Pt.", "2 Pt. Defend")
 num.games = max(init.data$game)
+
 for (i in 1:num.games) {
   ind.game = init.data[init.data$game == i, ]
   num.plays = max(ind.game$play)
@@ -83,10 +84,7 @@ for (i in 1:num.games) {
     if (cur.play.type %in% drive.enders) drive = drive + 1
   }
   
-  print(prev.plays)
-  print(num.plays + prev.plays - 1)
-  ind.game$drive = drive.col
-  init.data[prev.plays:num.plays + prev.plays - 1, ] = ind.game
+  init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
   prev.plays = prev.plays + num.plays
 }
 
