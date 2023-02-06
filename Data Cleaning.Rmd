@@ -53,11 +53,43 @@ init.data[negative.yds, "yard.ln"] = init.data[negative.yds, "yard.ln"] + 100
 names(init.data)[5] = "yds.to.endzone"
 
 # creating drive ID
-k.play.types = unique(init.data[init.data$odk == "K", ]$play.type)
+init.data$drive = rep(0, dim(init.data)[1])
+prev.plays = 1
+drive.preceders = c("KO", "KO Rec", "Onside Kick Rec")
+drive.starters = c("Fumble", "Interception", "Sack, Fumble")
+drive.enders = c("Punt Rec", "Punt", "Extra Pt.", "Extra Pt. Block", "FG Block",
+                 "FG", "2 Pt.", "2 Pt. Defend")
 num.games = max(init.data$game)
 for (i in 1:num.games) {
   ind.game = init.data[init.data$game == i, ]
+  num.plays = max(ind.game$play)
+  drive.col = rep(0, num.plays)
+  drive = 1
+  
+  for (j in 1:num.plays) {
+    cur.result = ind.game[j, "result"]
+    cur.play.type = ind.game[j, "play.type"]
+    
+    # if (cur.play.type %in% drive.preceders) {
+    #   drive = drive + 1
+    # }
+    if ((cur.result %in% drive.starters) && 
+             (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) {
+      drive = drive + 1
+    }
+    
+    drive.col[j] = drive
+    
+    if (cur.play.type %in% drive.enders) drive = drive + 1
+  }
+  
+  print(prev.plays)
+  print(num.plays + prev.plays - 1)
+  ind.game$drive = drive.col
+  init.data[prev.plays:num.plays + prev.plays - 1, ] = ind.game
+  prev.plays = prev.plays + num.plays
 }
+
 ```
 
 
