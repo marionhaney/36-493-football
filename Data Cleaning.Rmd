@@ -71,11 +71,13 @@ for (i in 1:num.games) {
     cur.result = ind.game[j, "result"]
     cur.play.type = ind.game[j, "play.type"]
     
-    # if (cur.play.type %in% drive.preceders) {
-    #   drive = drive + 1
-    # }
-    if ((cur.result %in% drive.starters) && 
-             (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) {
+    if ((cur.play.type %in% drive.preceders) &&
+        (j != 1) &&
+        !(ind.game[j - 1, "play.type"] %in% drive.enders)) { #Halftime kickoff
+      drive = drive + 1
+    }
+    else if ((cur.result %in% drive.starters) && 
+             (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) { #Turnover
       drive = drive + 1
     }
     
