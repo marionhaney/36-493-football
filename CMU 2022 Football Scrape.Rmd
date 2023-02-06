@@ -197,8 +197,8 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
       # get play
       currentPlay = str_extract(play, "(rush|pass|PENALTY|fumble|sacked|punt|field goal|kick|Kneel)")
       if (is.na(currentPlay)) {
-        print(play)
-        print(game$Play[i-1])
+        #print(play)
+        #print(game$Play[i-1])
         yards = "Error"
         currentPlay = "NA"
       }
@@ -412,10 +412,10 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
 Create the table:
 ```{r}
 bigBadTable = NULL
-cmuScrapeDone = FALSE
+teamScrapeDone = FALSE
 for (series in links) {
   # if we already did the CMU scrape, no need to continue
-  if (cmuScrapeDone) { break }
+  if (teamScrapeDone) { break }
   
   # play by play of game
   gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
@@ -464,7 +464,7 @@ for (series in links) {
     next
   }
   else {
-    cmuScrapeDone = TRUE
+    teamScrapeDone = TRUE
   }
   
   # getting abbreviations for the teams
@@ -485,22 +485,6 @@ for (series in links) {
     }
     i = i + 1
   }
-  
-  #for (i in 3:5) {
-  #  startOfGame = game[i,]
-  #  print(startOfGame)
-  #  print(startOfGame$Play)
-  #  if (!(is.na(str_extract(startOfGame$Play, "ball on")))) {
-  #      awayAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
-  #      awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
-  #      awayAbb = str_c(awayAbb, collapse = "")
-  #      homeAbb = gsub(".*on (.+)([[:punct:]])(.*)", "\\1", startOfGame$Play)
-  #      homeAbb = gsub("[[:punct:]].*", "\\1", homeAbb)
-  #      homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
-  #      homeAbb = str_c(homeAbb, collapse = "")
-  #      break
-  #    }
-  #}
 
   
   playByPlay = gamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
@@ -514,11 +498,131 @@ for (series in links) {
 #print(bigBadTable)
 ```
 
+
+Function to gather all 14 weeks of data
 ```{r}
 # combining the weeks together
-#df = data.frame(bigBadTable) # run initially then comment out
-#bigBadTable["Home.Team.Abbreviation"] = "RPI"
-#df = rbind(df, data.frame(bigBadTable)) # run for each week
+
+# function for combining play-by-play data for several links
+# input: listOfUrls list of links, string team
+# output: data frame of play-by-play data for a given team
+combineSeasonData = function(listOfUrls, teamName) {
+  df = NULL
+  
+  for (m in 1:13) {
+    url = listOfUrls[m]
+    print("scraping from: ")
+    print(url)
+    schedule = read_html(url, as.data.frame = TRUE, stringsAsFactors = TRUE)
+    x = schedule %>% html_nodes("table") %>% .[[1]]
+    fullSchedule = x %>% html_table(fill = TRUE)
+    allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
+    
+    links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; end = "?view=plays";
+    adding = paste(begin, x, sep = ""); ending = paste(adding, end, sep = "");
+    return(ending)}))
+    
+    bigBadTable = NULL
+    teamScrapeDone = FALSE
+    for (series in links) {
+      # if we already did the team scrape, no need to continue
+      if (teamScrapeDone) { break }
+      # play by play of game
+      gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
+      y = gameSeries %>% html_nodes("table") %>% .[[3]]
+      # play by play as table
+      game = y %>% html_table(fill = TRUE)
+      colnames(game) = c("Situation", "Play")
+      # getting teams
+      awayInfo = gameSeries %>% html_nodes("td") %>% .[[2]] %>% html_text()
+      awayInfo = unlist(str_extract_all(awayInfo, "[^\n\r\t]"))
+      awayInfo = str_c(awayInfo, collapse = "")
+      awayInfo = unlist(str_split(awayInfo, "   +"))
+      awayTeam = awayInfo[2]
+      awayTeamScore = awayInfo[3]
+      homeInfo = gameSeries %>% html_nodes("td") %>% .[[3]] %>% html_text()
+      homeInfo = unlist(str_extract_all(homeInfo, "[^\n\r\t]"))
+      homeInfo = str_c(homeInfo, collapse = "")
+      homeInfo = unlist(str_split(homeInfo, "   +"))
+      homeTeam = homeInfo[2]
+      homeTeamScore = homeInfo[3]
+      # getting teams, location, date, time
+      setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
+      setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
+      setting = str_c(setting, collapse = "")
+      setting = unlist(str_split(setting, "  "))
+      teamsLocation = setting[2]
+      teamsLocation = unlist(str_split(teamsLocation, " - "))
+      location = teamsLocation[2]
+      dateTime = setting[3]
+      dateTime = unlist(str_split(dateTime, " - "))
+      date = dateTime[1]
+      time = dateTime[2]
+      # only certain teams
+      if (homeTeam != teamName && awayTeam != teamName) {
+        next
+      } else {
+        teamScrapeDone = TRUE
+      }
+      awayAbb = gsub(".*at (.+)", "\\1", game[3, ]$Situation)
+      awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
+      awayAbb = str_c(awayAbb, collapse = "")
+      homeAbbFound = FALSE
+      index = 4
+      i = 1
+      while (!homeAbbFound) {
+        startOfGame = game[i,]
+        if (grepl("[1-4][(st)|(nd)|(rd)|(th)]", substr(startOfGame$Situation, 1, 3))) {
+          homeAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
+          homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
+          homeAbb = str_c(homeAbb, collapse = "")
+          if (homeAbb != awayAbb) {
+            homeAbbFound = TRUE
+          }
+        }
+        i = i + 1
+      }
+      playByPlay = gamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
+      if (m == 1) {
+        df = data.frame(playByPlay)
+      } else {
+        bigBadTable = playByPlay
+        df = rbind(df, bigBadTable)
+      }
+      
+    }
+  }
+  return(df)
+}
+
+
+```
+
+```{r}
+# urls
+
+URLS = c("https://www.d3football.com/scoreboard/2022/composite?view=1", 
+        "https://www.d3football.com/scoreboard/2022/composite?view=2",
+        "https://www.d3football.com/scoreboard/2022/composite?view=3",
+        "https://www.d3football.com/scoreboard/2022/composite?view=4",
+        "https://www.d3football.com/scoreboard/2022/composite?view=5",
+        "https://www.d3football.com/scoreboard/2022/composite?view=6",
+        "https://www.d3football.com/scoreboard/2022/composite?view=7", 
+        "https://www.d3football.com/scoreboard/2022/composite?view=8", 
+        "https://www.d3football.com/scoreboard/2022/composite?view=9", 
+        "https://www.d3football.com/scoreboard/2022/composite?view=10", 
+        "https://www.d3football.com/scoreboard/2022/composite?view=11",
+        "https://www.d3football.com/scoreboard/2022/composite?view=12", 
+        "https://www.d3football.com/scoreboard/2022/composite?view=13")
+```
+
+```{r}
+
+# make df
+df = combineSeasonData(URLS, "Carnegie Mellon")
+
+# save df
+write.csv(df, "CMU-2022-pbp.csv", row.names=FALSE)
 ```
 
 
