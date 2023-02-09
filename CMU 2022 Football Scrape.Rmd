@@ -12,6 +12,23 @@ require(magrittr)
 require(stringr)
 ```
 
+```{r}
+# Default: 2022 regular season games
+seasonSchedule = function(year = 2022, weeks = 10) {
+  # check that valid number of games
+  weeks = ifelse(weeks > 12, 10, weeks)
+  weeks = seq(weeks)
+  seasonLink = c()
+  for (week in weeks) {
+    weekLink = paste(c("https://www.d3football.com/scoreboard/", year, 
+                     "/composite?view=", week), collapse = "")
+    seasonLink = c(seasonLink, weekLink)
+  }
+  return(seasonLink)
+}
+print(seasonSchedule(year = 2021))
+```
+
 
 Get the main URL of all games during WK and season YEAR:
 ```{r}
