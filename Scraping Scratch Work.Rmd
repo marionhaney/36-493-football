@@ -12,6 +12,7 @@ require(rvest)
 require(magrittr)
 require(stringr)
 require(rje)
+require(dplyr)
 ```
 
 # Year Schedule
@@ -55,10 +56,10 @@ weekSchedule = function(url) {
 ```{r}
 makeWeekTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon")) {
   teamScrapeDone = FALSE
+  seen = c()
   for (series in links) {
     # if we already did the scrape of wanted teams, no need to continue
     if (teamScrapeDone) { break }
-    seen = c()
     
     # play by play of game
     gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
@@ -96,10 +97,10 @@ makeWeekTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon"))
     time = dateTime[2]
     
     # only wanted teams
-    if (!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) {
+    if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
+        (homeTeam %in% seen) || (awayTeam %in% seen)) {
       next
     }
-    # work on if seen
     else {
       if (homeTeam %in% wantedTeams) {
         seen = c(seen, homeTeam)
@@ -108,9 +109,8 @@ makeWeekTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon"))
         seen = c(seen, awayTeam)
       }
       if (is.subset(wantedTeams, seen)) {
-        print(wantedTeams)
-        print(seen)
         teamScrapeDone = TRUE
+        seen = c()
       }
     }
     
@@ -140,8 +140,8 @@ makeWeekTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon"))
     else {
       bigBadTable = rbind(bigBadTable, playByPlay)
     }
-  return(bigBadTable)
   }
+  return(bigBadTable)
 }
 ```
 
@@ -513,12 +513,56 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
 ```
 
 ```{r}
+# All teams
+allTeams = "https://www.d3football.com/teams/index"
+
+# read table of teams, extract table, and fill table as data frame
+teams = read_html(allTeams, as.data.frame = TRUE, stringsAsFactors = TRUE)
+teams = teams %>% html_nodes("table") %>% .[[1]]
+teams = teams %>% html_table(fill = TRUE)
+```
+
+```{r}
+getConferenceTeams = function(conference = "PAC") {
+  # Vector of teams in conference
+  confTeams = teams %>% subset(., Conference == conference, select = School) %>% unlist(use.names = FALSE)
+  return(confTeams)
+}
+```
+
+```{r}
+getRegionTeams = function(region = 2) {
+  # Vector of teams in region
+  regionalTeams = teams %>% subset(., Region == region, select = School) %>% unlist(use.names = FALSE)
+  return(regionalTeams)
+}
+```
+
+```{r}
+getSurfaceTeams = function(surface = "Turf") {
+  # Vector of teams by field surface type
+  surfaceTeams = teams %>% subset(., Surface == surface, select = School) %>% unlist(use.names = FALSE)
+  return(surfaceTeams)
+}
+```
+
+```{r}
+getNicknameTeam = function(nickname = "Tartans") {
+  # Vector of teams with nickname
+  nicknameTeams = teams %>% subset(., Nickname %in% nickname, select = School) %>% unlist(use.names = FALSE)
+  return(nicknameTeams)
+}
+```
+
+```{r}
 # User input (eventually)
+
 seasonScheduleLinks = seasonSchedule(weeks = 2)
 bigBadTable = NULL
+confTeams = getConferenceTeams()
 for (week in seasonScheduleLinks) {
   playByPlayLinks = weekSchedule(week)
-  bigBadTable = makeWeekTable(playByPlayLinks, bigBadTable, c("Carnegie Mellon", "Whitworth"))
+  bigBadTable = makeWeekTable(playByPlayLinks, bigBadTable, confTeams)
 }
 ```
 
