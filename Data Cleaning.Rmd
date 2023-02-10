@@ -81,6 +81,8 @@ for (i in 1:num.games) { # Go through every game
       drive = drive + 1
     }
     else if ((cur.result %in% drive.starters) && 
+             !(cur.play.type %in% drive.enders) &&
+             (j != 1) &&
              (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) { #Turnover
       drive = drive + 1
     }
@@ -102,6 +104,9 @@ for (i in 1:num.games) { # Go through every game
   init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
   prev.plays = prev.plays + num.plays
 }
+
+
+write.csv(init.data, "C:\\Users\\Eli\\Documents\\School\\Capstone\\Data\\36-493-football\\Cleaned_Data.csv")
 ```
 
 
