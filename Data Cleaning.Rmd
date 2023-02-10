@@ -53,21 +53,27 @@ init.data[negative.yds, "yard.ln"] = init.data[negative.yds, "yard.ln"] + 100
 names(init.data)[5] = "yds.to.endzone"
 
 # creating drive ID
+insert = data.frame(play = 11, odk = as.factor("O"), dn = 0, dist = -1, 
+                    yds.to.endzone = 101, gn.ls = -101, result = as.factor(""), 
+                    play.type = as.factor("Run"), game = 8)
+init.data = rbind(init.data[1:1256, ], insert, init.data[1257:2082, ])
+
 init.data$drive = rep(0, dim(init.data)[1])
 prev.plays = 1
 drive.preceders = c("KO", "KO Rec", "Onside Kick Rec")
 drive.starters = c("Fumble", "Interception", "Sack, Fumble")
 drive.enders = c("Punt Rec", "Punt", "Extra Pt.", "Extra Pt. Block", "FG Block",
                  "FG", "2 Pt.", "2 Pt. Defend")
+od = c(as.factor("O"), as.factor("D"))
 num.games = max(init.data$game)
 
-for (i in 1:num.games) {
+for (i in 1:num.games) { # Go through every game
   ind.game = init.data[init.data$game == i, ]
   num.plays = max(ind.game$play)
   drive.col = rep(0, num.plays)
   drive = 1
   
-  for (j in 1:num.plays) {
+  for (j in 1:num.plays) { # Go through every play in the game
     cur.result = ind.game[j, "result"]
     cur.play.type = ind.game[j, "play.type"]
     
@@ -83,13 +89,31 @@ for (i in 1:num.games) {
     
     drive.col[j] = drive
     
-    if (cur.play.type %in% drive.enders) drive = drive + 1
+    if ((cur.play.type %in% drive.enders) ||
+        ((j != 1) && # Not opening kickoff
+         (j != num.plays) &&  # Don't want index out of bounds
+         !(cur.result %in% drive.starters) && # Don't want it to have entered previous if statement
+         (ind.game[j, "odk"] %in% od) && # Current play must be offense or defense
+         (ind.game[j + 1, "odk"] %in% od) && # Next play must be offense or defense
+         (ind.game[j, "odk"] != ind.game[j + 1, "odk"]))) { #Rest of drive changers
+                                                            #OR condition checks for turnover on downs
+      drive = drive + 1
+    }
   }
   
   init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
   prev.plays = prev.plays + num.plays
 }
 
+#write.csv(init.data, "C:\\Users\\Eli\\Documents\\School\\Capstone\\Data\\36-493-football\\Cleaned_Data.csv")
+
 ```
+
+```{r}
+## Sanity checks
+
+
+```
+
 
 
