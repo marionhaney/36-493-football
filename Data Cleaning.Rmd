@@ -13,11 +13,11 @@ library(tidyverse)
 ```{r}
 ## Data initialization
 
-init.data = read.csv("Initial_Play_-_By_-_Play.csv")
+init.data = read.csv("Initial_Play_-_By_-_Play.csv", na=c(""))
 
 # convert character variables to factor
-factor.vars = c("ODK", "RESULT", "PLAY.TYPE")
-init.data[factor.vars] = lapply(init.data[factor.vars], factor)
+#factor.vars = c("ODK", "RESULT", "PLAY.TYPE")
+#init.data[factor.vars] = lapply(init.data[factor.vars], factor)
 
 # renaming variables for convenience
 names(init.data) = tolower(names(init.data))
@@ -106,5 +106,16 @@ for (i in 1:num.games) { # Go through every game
 }
 ```
 
+```{r}
+# creating drive outcome
+if (nrow(init.data)==2083) { init.data = init.data[-2083,] }
+last.plays = c(which(init.data$drive!=lead(init.data$drive)), nrow(init.data))
+last.results = init.data$result[last.plays]
+last.results = ifelse(is.na(init.data$result[last.plays]), init.data$play.type[last.plays],
+                      init.data$result[last.plays])
+which(is.na(init.data$play.type) & is.na(init.data$result))
+
+
+```
 
 
