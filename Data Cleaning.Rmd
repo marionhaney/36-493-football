@@ -104,7 +104,6 @@ for (i in 1:num.games) { # Go through every game
   init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
   prev.plays = prev.plays + num.plays
 }
-
 ```
 
 
