@@ -58,10 +58,12 @@ init.data = rbind(init.data[1:1256, ], insert, init.data[1257:2082, ])
 
 init.data$drive = rep(0, dim(init.data)[1])
 prev.plays = 1
+
 drive.preceders = c("KO", "KO Rec", "Onside Kick Rec")
-drive.starters = c("Fumble", "Interception", "Sack, Fumble")
-drive.enders = c("Punt Rec", "Punt", "Extra Pt.", "Extra Pt. Block", "FG Block",
-                 "FG", "2 Pt.", "2 Pt. Defend")
+drive.enders.play.type = c("Punt Rec", "Punt", "Extra Pt.", "Extra Pt. Block", 
+                           "FG Block", "FG", "2 Pt.", "2 Pt. Defend")
+drive.enders.result = c("Fumble", "Interception", "Sack, Fumble")
+
 od = c(as.factor("O"), as.factor("D"))
 num.games = max(init.data$game)
 
@@ -77,26 +79,29 @@ for (i in 1:num.games) { # Go through every game
     
     if ((cur.play.type %in% drive.preceders) &&
         (j != 1) &&
-        !(ind.game[j - 1, "play.type"] %in% drive.enders)) { #Halftime kickoff
-      drive = drive + 1
-    }
-    else if ((cur.result %in% drive.starters) && 
-             !(cur.play.type %in% drive.enders) &&
-             (j != 1) &&
-             (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) { #Turnover
+        (j != num.plays) &&
+       !(ind.game[j - 1, "play.type"] %in% drive.enders.play.type) &&
+       !(ind.game[j - 1, "play.type"] %in% drive.preceders)) { #Halftime kickoff
       drive = drive + 1
     }
     
     drive.col[j] = drive
     
-    if ((cur.play.type %in% drive.enders) ||
-        ((j != 1) && # Not opening kickoff
-         (j != num.plays) &&  # Don't want index out of bounds
-         !(cur.result %in% drive.starters) && # Don't want it to have entered previous if statement
-         (ind.game[j, "odk"] %in% od) && # Current play must be offense or defense
+    if ((j != 1) && # Not opening kickoff
+        (j != num.plays) && # Don't want index out of bounds later
+        
+        # Fumbles, Interceptions, Punts, scoring plays
+        ((cur.play.type %in% drive.enders.play.type) ||
+         ((cur.result %in% drive.enders.result) &&
+          (ind.game[j, "odk"] %in% od) && # Current play must be offense or defense
+          (ind.game[j + 1, "odk"] %in% od) && # Next play must be offense or defense
+          (ind.game[j, "odk"] != ind.game[j + 1, "odk"]))) ||
+        
+        # Turnover on downs
+        ((ind.game[j, "odk"] %in% od) && # Current play must be offense or defense
          (ind.game[j + 1, "odk"] %in% od) && # Next play must be offense or defense
-         (ind.game[j, "odk"] != ind.game[j + 1, "odk"]))) { #Rest of drive changers
-                                                            #OR condition checks for turnover on downs
+         (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) # Consecutive plays are on different sides of the ball
+        ) {
       drive = drive + 1
     }
   }
@@ -104,6 +109,8 @@ for (i in 1:num.games) { # Go through every game
   init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
   prev.plays = prev.plays + num.plays
 }
+
+init.data[init.data$play.type %in% drive.preceders, "drive"] = NA
 ```
 
 
