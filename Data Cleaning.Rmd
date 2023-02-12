@@ -108,14 +108,19 @@ for (i in 1:num.games) { # Go through every game
 
 ```{r}
 # creating drive outcome
-if (nrow(init.data)==2083) { init.data = init.data[-2083,] }
 last.plays = c(which(init.data$drive!=lead(init.data$drive)), nrow(init.data))
-last.results = init.data$result[last.plays]
-last.results = ifelse(is.na(init.data$result[last.plays]), init.data$play.type[last.plays],
-                      init.data$result[last.plays])
-which(is.na(init.data$play.type) & is.na(init.data$result))
-
-
+last.results = init.data$play.type[last.plays]
+last.results = ifelse(last.results=="Pass" | last.results=="Run", "Turnover on Downs", 
+               ifelse(last.results=="Punt Rec", "Punt", 
+               ifelse(last.results %in% c("Extra Pt.","Extra Pt. Block","2 Pt.","2 Pt. Defend"), "TD",
+               ifelse(last.results=="FG Block", "FG", last.results))))
+offset = 0
+init.data$drive.outcome = NA
+for (i in 1:max(init.data$game)) {
+  ind = which(init.data$game==i)
+  init.data$drive.outcome[ind] = last.results[init.data$drive[ind] + offset]
+  offset = offset + max(init.data$drive[ind])
+}
 ```
 
 
