@@ -124,15 +124,12 @@ last.results = ifelse(last.results=="Pass" | last.results=="Run", "Turnover on D
                ifelse(last.results=="FG Block", "FG", last.results))))
 offset = 0
 init.data$drive.outcome = NA
-for (i in 1:num.games) {
+for (i in 1:max(init.data$game)) {
   ind = which(init.data$game==i)
   init.data$drive.outcome[ind] = last.results[init.data$drive[ind] + offset]
   offset = offset + max(init.data$drive[ind])
 }
 
-<<<<<<< HEAD
-
-=======
 # creating next scoring play
 TD.score = c("Complete, TD", "Rush, TD", "Interception, Def TD", "Scramble, TD",
              "Blocked, Def TD", "Fumble, Def TD") # check the result column
@@ -143,7 +140,5 @@ FG.score.rows = init.data[init.data$play.type %in% FG.score, ]
 #TBD add if the FG is good or not
 
 init.data$next.score = NA
->>>>>>> a3e3e490a0864476650da0b4558a018cc689625f
 ```
-
 
