@@ -115,7 +115,8 @@ init.data[init.data$play.type %in% drive.preceders, "drive"] = NA
 
 ```{r}
 # creating drive outcome
-last.plays = c(which(init.data$drive!=lead(init.data$drive)), nrow(init.data))
+last.plays = which(!mapply(identical, init.data$drive, lead(init.data$drive, default=0)) & 
+                     !(init.data$play.type %in% c("KO", "KO Rec")))
 last.results = init.data$play.type[last.plays]
 last.results = ifelse(last.results=="Pass" | last.results=="Run", "Turnover on Downs", 
                ifelse(last.results=="Punt Rec", "Punt", 
@@ -128,6 +129,8 @@ for (i in 1:max(init.data$game)) {
   init.data$drive.outcome[ind] = last.results[init.data$drive[ind] + offset]
   offset = offset + max(init.data$drive[ind])
 }
+
+
 ```
 
 
