@@ -1,0 +1,47 @@
+---
+title: "getSeasonLinks"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+
+getSeasonLinks:
+INPUT: 
+year: the year of the season
+weeks: the number of weeks to gather links for starting with week 1
+OUTPUT: a vector containing each link showing the games played during 
+that week of the season
+DEFAULT: year = 2022, weeks = 10
+
+
+```{r}
+# Default: 2022 regular season games
+getSeasonLinks = function(year = 2022, weeks = 10) {
+  # check that valid number of games
+  weeks = ifelse(weeks > 12, 10, weeks)
+  weeks = seq(weeks)
+  seasonLink = c()
+  for (week in weeks) {
+    weekLink = paste(c("https://www.d3football.com/scoreboard/", year, 
+                     "/composite?view=", week), collapse = "")
+    seasonLink = c(seasonLink, weekLink)
+  }
+  return(seasonLink)
+}
+```
+
+Testing
+```{r}
+print(getSeasonLinks())
+```
+

@@ -1,0 +1,30 @@
+---
+title: "Scraping Scratch Work"
+author: "Jordan Gilbert"
+date: "2023-02-08"
+output: html_document
+---
+
+# Libraries
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+
+```{r}
+# User input (eventually)
+
+seasonScheduleLinks = seasonSchedule(weeks = 2)
+bigBadTable = NULL
+confTeams = getConferenceTeams()
+for (week in seasonScheduleLinks) {
+  playByPlayLinks = weekSchedule(week)
+  bigBadTable = makeWeekTable(playByPlayLinks, bigBadTable, confTeams)
+}
+```
+

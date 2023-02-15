@@ -1,0 +1,38 @@
+---
+title: "getNicknameTeam"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+getNicknameTeam:
+INPUT: 
+teamData: the output of getAllTeams
+nickname: the string nickname to search for
+OUTPUT: vector containing the string names of all the D3 football teams
+who go by the given nickname
+DEFAULT: nickname = "Tartans"
+
+```{r}
+getNicknameTeam = function(teamData, nickname = "Tartans") {
+  # Vector of teams with nickname
+  nicknameTeams = teamData %>% subset(., Nickname %in% nickname, select = School) %>% unlist(use.names = FALSE)
+  return(nicknameTeams)
+}
+```
+
+
+Testing
+```{r}
+teamData = getAllTeams()
+print(getNicknameTeam(teamData, nickname = "Bulldogs"))
+```

@@ -1,0 +1,51 @@
+---
+title: "getWeekPlayByPlayLinks"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+
+getWeekPlayByPlayLinks:
+INPUT: 
+url: the url which has the games played during a certain week of the season
+(output of getSeasonLinks)
+OUTPUT: a vector containing links to the play by play table of each game played
+during the certain week of the defined season
+
+
+```{r}
+getWeekPlayByPlayLinks = function(url) {
+  # read schedule of given week
+  schedule = read_html(url, as.data.frame = TRUE, stringsAsFactors = TRUE)
+  x = schedule %>% html_nodes("table") %>% .[[1]]
+  
+  # schedule as table
+  fullSchedule = x %>% html_table(fill = TRUE)
+  
+  # all links on table
+  allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
+  
+  # links to play by play
+  links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
+          end = "?view=plays"; adding = paste(begin, x, sep = ""); 
+          ending = paste(adding, end, sep = "");
+          return(ending)}))
+}
+```
+
+Testing
+```{r}
+# gets the links to the play by play tables for week 1 of the 2022 season
+print(getWeekPlayByPlayLinks("https://www.d3football.com/scoreboard/2022/composite?view=1"))
+```
+

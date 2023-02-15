@@ -1,0 +1,39 @@
+---
+title: "getSurfaceTeams"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+getSurfaceTeams:
+INPUT: 
+teamData: the output of getAllTeams
+surface: the string of the surface type
+OUTPUT: vector containing the string names of all the D3 football teams
+who play on the specified surface
+DEFAULT: surface = "Turf"
+
+```{r}
+getSurfaceTeams = function(teamData, surface = "Turf") {
+  # Vector of teams by field surface type
+  surfaceTeams = teamData %>% subset(., Surface == surface, select = School) %>% unlist(use.names = FALSE)
+  return(surfaceTeams)
+}
+```
+
+Testing
+```{r}
+teamData = getAllTeams()
+print(getSurfaceTeams(teamData, surface = "Turf"))
+```
+

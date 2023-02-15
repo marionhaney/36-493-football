@@ -1,0 +1,44 @@
+---
+title: "getAllTeams"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+
+getAllTeams:
+INPUT:
+OUTPUT: a data frame containing strings of all the D3 football team names,
+their nickname, location, conference, region, surface, and enrollment
+DEFAULT: 
+
+```{r}
+getAllTeams = function() {
+  # all teams
+  allTeams = "https://www.d3football.com/teams/index"
+
+  # read table of teams, extract table, and fill table as data frame
+  teams = read_html(allTeams, as.data.frame = TRUE, stringsAsFactors = TRUE)
+  teams = teams %>% html_nodes("table") %>% .[[1]]
+  teams = teams %>% html_table(fill = TRUE)
+  return(teams)
+}
+
+```
+
+Testing
+```{r}
+print(getAllTeams())
+```
+
+
+

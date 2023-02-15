@@ -1,0 +1,37 @@
+---
+title: "getRegionTeams"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+getRegionTeams:
+INPUT: 
+teamData: the output of getAllTeams
+region: the integer representing the region
+OUTPUT: vector containing the string names of all the D3 football teams
+in the specified region
+DEFAULT: region = 2
+
+```{r}
+getRegionTeams = function(teamData, region = 2) {
+  # Vector of teams in region
+  regionalTeams = teamData %>% subset(., Region == region, select = School) %>% unlist(use.names = FALSE)
+  return(regionalTeams)
+}
+```
+
+Testing
+```{r}
+teamData = getAllTeams()
+print(getRegionTeams(teamData, region = 2))
+```

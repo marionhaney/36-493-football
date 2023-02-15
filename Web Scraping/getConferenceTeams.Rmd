@@ -1,0 +1,38 @@
+---
+title: "getConferenceTeams"
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-02-15'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(rje)
+require(dplyr)
+```
+
+getConferenceTeams:
+INPUT: 
+teamData: the output of getAllTeams
+conference: the string of the conference
+OUTPUT: vector containing the string names of all the D3 football teams
+in the specified conference
+DEFAULT: conference = "PAC"
+
+```{r}
+getConferenceTeams = function(teamData, conference = "PAC") {
+  # Vector of teams in conference
+  confTeams = teamData %>% subset(., Conference == conference, select = School) %>% unlist(use.names = FALSE)
+  return(confTeams)
+}
+```
+
+Testing
+```{r}
+teamData = getAllTeams()
+print(getConferenceTeams(teamData, conference = "PAC"))
+```
+
