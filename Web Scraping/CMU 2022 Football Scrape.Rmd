@@ -14,7 +14,6 @@ require(purrr)
 require(dplyr)
 ```
 
-
 Function to get urls for a number of weeks for a given year
 ```{r}
 # Default: 2022 regular season games
@@ -578,7 +577,7 @@ batchScrape2 = function(urls, teams) {
     # make newDf
     for (m in 1:length(urls)) {
       url = urls[m]
-      links = weekSchedule(url) # links to the play by plays
+      links = weekSchedule(url)
       
       bigBadTable = NULL
       for (series in links) {
@@ -676,7 +675,7 @@ Batch Scrape from URLs
 # make df
 checkURLs = c("https://www.d3football.com/scoreboard/2022/composite?view=1", "https://www.d3football.com/scoreboard/2022/composite?view=2")
 
-df = batchScrape(checkURLs, PAC)
+df = batchScrape2(checkURLs, PAC)
 ```
 
 
