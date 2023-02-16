@@ -19,19 +19,17 @@ getPlayByPlayTable:
 INPUT: 
 links: vector of links to play by play tables to scrape from
 (output of getWeekPlayByPlayLinks)
-wantedTeams: a vector of strings of the full names of each team to scrape for
-OUTPUT: a table from the play by play link for each team in wantedTeams
-DEFAULT: wantedTeams = c("Carnegie Mellon")
+wantedTeam: a string of the full name of the team to scrape for
+OUTPUT: a table from the play by play link for the specified team
+DEFAULT: wantedTeam = "Carnegie Mellon"
+
+multiple weeks for ONE team
 
 
 ```{r}
-getPlayByPlayTable = function(links, wantedTeams = c("Carnegie Mellon")) {
+getPlayByPlayTable = function(links, wantedTeam = "Carnegie Mellon") {
   bigBadTable = NULL
-  teamScrapeDone = FALSE
-  seen = c()
   for (series in links) {
-    # if we already did the scrape of wanted teams, no need to continue
-    if (teamScrapeDone) { break }
     
     # play by play of game
     gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
@@ -55,6 +53,11 @@ getPlayByPlayTable = function(links, wantedTeams = c("Carnegie Mellon")) {
     homeTeam = homeInfo[2]
     homeTeamScore = homeInfo[3]
     
+        # only wanted teams
+    if ((!(homeTeam == wantedTeam) && !(awayTeam == wantedTeam))) {
+      next
+    }
+    
     # getting teams, location, date, time
     setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
     setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
@@ -67,24 +70,7 @@ getPlayByPlayTable = function(links, wantedTeams = c("Carnegie Mellon")) {
     dateTime = unlist(str_split(dateTime, " - "))
     date = dateTime[1]
     time = dateTime[2]
-    
-    # only wanted teams
-    if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
-        (homeTeam %in% seen) || (awayTeam %in% seen)) {
-      next
-    }
-    else {
-      if (homeTeam %in% wantedTeams) {
-        seen = c(seen, homeTeam)
-      }
-      if (awayTeam %in% wantedTeams) {
-        seen = c(seen, awayTeam)
-      }
-      if (is.subset(wantedTeams, seen)) {
-        teamScrapeDone = TRUE
-        seen = c()
-      }
-    }
+
     
     # getting abbreviations for the teams
     awayAbb = gsub(".*at (.+)", "\\1", game[3, ]$Situation)
@@ -121,8 +107,14 @@ getPlayByPlayTable = function(links, wantedTeams = c("Carnegie Mellon")) {
 Testing
 ```{r}
 # gets a play by play table from the Carnegie Mellon vs Whitworth 2022 game week 1
-links = c("https://www.d3football.com/seasons/2022/boxscores/20220902_wovk.xml?view=plays")
-getPlayByPlayTable(links, wantedTeams = c("Carnegie Mellon"))
+#links = c("https://www.d3football.com/seasons/2022/boxscores/20220902_wovk.xml?view=plays")
+seasonLinks = getSeasonLinks(2022, 10)
+playByPlayLinks = c()
+for (wk in seasonLinks) {
+  wkLinks = getWeekPlayByPlayLinks(wk)
+  playByPlayLinks = append(playByPlayLinks, wkLinks)
+}
+df = getPlayByPlayTable(playByPlayLinks, wantedTeam = "Carnegie Mellon")
 ```
 
 

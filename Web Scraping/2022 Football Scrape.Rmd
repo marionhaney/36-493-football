@@ -1,0 +1,74 @@
+---
+title: "CMU 2022 Football Scrape"
+author: "Jordan Gilbert, Marion Haney"
+date: "2/1/2023"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(purrr)
+require(dplyr)
+```
+
+
+Function to batch scrape (test):
+multiple teams and multiple weeks
+```{r}
+batchScrape = function(urls, teams) {
+  # gather all the play by play links
+  playByPlayLinks = c()
+  for (wk in urls) {
+    wkLinks = getWeekPlayByPlayLinks(wk)
+    playByPlayLinks = append(playByPlayLinks, wkLinks)
+  }
+  df = data.frame()
+  
+  # gather play by play data for each team
+  for (t in teams) {
+    print(t)
+    toAdd = getPlayByPlayTable(playByPlayLinks, wantedTeam = t)
+    df = rbind(df, toAdd)
+  }
+  
+  df.distinct = df %>% distinct()
+  return(df.distinct)
+}
+```
+
+
+```{r}
+seasonLinks = getSeasonLinks(2022, 10)
+teamData = getAllTeams()
+pacTeams = getConferenceTeams(teamData, "PAC")
+playByPlayLinks = c()
+for (wk in seasonLinks) {
+  wkLinks = getWeekPlayByPlayLinks(wk)
+  playByPlayLinks = append(playByPlayLinks, wkLinks)
+}
+```
+
+
+Get CMU Play by Play for 2022 season weeks 1-10
+```{r}
+#cmu.df = getPlayByPlayTable(playByPlayLinks, "Carnegie Mellon")
+```
+
+
+Get all PAC teams Play by Play for the 2022 season weeks 1-10
+```{r}
+pac.df = batchScrape(seasonLinks, pacTeams)
+```
+
+
+Save data frame to local
+```{r}
+# save df
+#write.csv(cmu.df, "CMU-2022-pbp.csv", row.names=FALSE)
+write.csv(pac.df, "PAC-2022-pbp.csv", row.names=FALSE)
+```
+
+

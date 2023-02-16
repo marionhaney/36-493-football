@@ -26,5 +26,26 @@ for (week in seasonScheduleLinks) {
   playByPlayLinks = weekSchedule(week)
   bigBadTable = makeWeekTable(playByPlayLinks, bigBadTable, confTeams)
 }
+
 ```
 
+
+
+
+  # only wanted teams
+if ((!(homeTeam %in% wantedTeam) && !(awayTeam %in% wantedTeam)) ||
+      (homeTeam %in% seen) || (awayTeam %in% seen)) {
+    next
+  }
+else {
+    if (homeTeam %in% wantedTeams) {
+      seen = c(seen, homeTeam)
+    }
+    if (awayTeam %in% wantedTeams) {
+      seen = c(seen, awayTeam)
+    }
+    if (is.subset(wantedTeams, seen)) {
+      teamScrapeDone = TRUE
+      seen = c()
+    }
+  }
