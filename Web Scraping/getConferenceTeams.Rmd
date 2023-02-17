@@ -12,6 +12,7 @@ require(magrittr)
 require(stringr)
 require(rje)
 require(dplyr)
+require(assertthat)
 ```
 
 getConferenceTeams:
@@ -24,10 +25,40 @@ DEFAULT: conference = "PAC"
 
 ```{r}
 getConferenceTeams = function(teamData, conference = "PAC") {
-  # Vector of teams in conference
-  confTeams = teamData %>% subset(., Conference == conference, select = School) %>% unlist(use.names = FALSE)
-  return(confTeams)
+  tryCatch(
+    {
+      if (!(is.string(conference))) {
+        message("Invalid Conference Input")
+        return(NA)
+      }
+      conference = toupper(conference)
+      if (!(conference %in% unique(teamData$Conference))) {
+        message("Invalid Conference Input")
+        return(NA)
+      }
+      # Vector of teams in conference
+      confTeams = teamData %>% subset(., Conference == conference, select = School) %>% 
+                              unlist(use.names = FALSE)
+      return(confTeams)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print(cat("Conference =", conference))
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      print(cat("Conference =", conference))
+      return(NA)
+    }
+  )
 }
+#
+#  # Vector of teams in conference
+#  confTeams = teamData %>% subset(., Conference == conference, select = School) %>% unlist(use.names #= FALSE)
+#  return(confTeams)
+#}
 ```
 
 Testing
