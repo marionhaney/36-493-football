@@ -23,16 +23,29 @@ DEFAULT:
 
 ```{r}
 getAllTeams = function() {
-  # all teams
-  allTeams = "https://www.d3football.com/teams/index"
-
-  # read table of teams, extract table, and fill table as data frame
-  teams = read_html(allTeams, as.data.frame = TRUE, stringsAsFactors = TRUE)
-  teams = teams %>% html_nodes("table") %>% .[[1]]
-  teams = teams %>% html_table(fill = TRUE)
-  return(teams)
+  tryCatch(
+    {
+      # all teams
+      allTeams = "https://www.d3football.com/teams/index"
+    
+      # read table of teams, extract table, and fill table as data frame
+      teams = read_html(allTeams, as.data.frame = TRUE, stringsAsFactors = TRUE)
+      teams = teams %>% html_nodes("table") %>% .[[1]]
+      teams = teams %>% html_table(fill = TRUE)
+      return(teams)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      return(NA)
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      return(NA)
+    }
+  )
 }
-
 ```
 
 Testing

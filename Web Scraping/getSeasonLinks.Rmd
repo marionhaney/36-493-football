@@ -27,16 +27,38 @@ DEFAULT: year = 2022, weeks = 10
 ```{r}
 # Default: 2022 regular season games
 getSeasonLinks = function(year = 2022, weeks = 10) {
-  # check that valid number of games
-  weeks = ifelse(weeks > 12, 10, weeks)
-  weeks = seq(weeks)
-  seasonLink = c()
-  for (week in weeks) {
-    weekLink = paste(c("https://www.d3football.com/scoreboard/", year, 
-                     "/composite?view=", week), collapse = "")
-    seasonLink = c(seasonLink, weekLink)
-  }
-  return(seasonLink)
+  tryCatch(
+    {
+      # Check if numeric input
+      if (!(is.numeric(year)) & !(is.numeric(weeks))) {
+        message("Invalid Input")
+        print(cat("Year =", year))
+        print(cat("Weeks =", weeks))
+        return(NA)
+      }
+      
+      # check that valid number of games
+      weeks = ifelse(weeks > 13, 10, weeks)
+      weeks = seq(weeks)
+      seasonLink = c()
+      for (week in weeks) {
+        weekLink = paste(c("https://www.d3football.com/scoreboard/", year, 
+                         "/composite?view=", week), collapse = "")
+        seasonLink = c(seasonLink, weekLink)
+      }
+      return(seasonLink)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      return(NA)
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      return(NA)
+    }
+  )
 }
 ```
 

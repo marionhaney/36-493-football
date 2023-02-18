@@ -24,9 +24,41 @@ DEFAULT: region = 2
 
 ```{r}
 getRegionTeams = function(teamData, region = 2) {
-  # Vector of teams in region
-  regionalTeams = teamData %>% subset(., Region == region, select = School) %>% unlist(use.names = FALSE)
-  return(regionalTeams)
+  tryCatch(
+    {
+      validRegions = sort(unique(teamData$Region))
+      
+      # Check if numeric input
+      if (!(is.numeric(region))) {
+        message("Invalid Region Input")
+        message("Valid Region Input includes ...")
+        return(validRegions)
+      }
+      
+      # Check if region input is a valid region
+      if (!(region %in% validRegions)) {
+        message("Invalid Region Input")
+        message("Valid Region Input includes ...")
+        return(validRegions)
+      }
+      
+      # Vector of teams in region
+      regionalTeams = teamData %>% subset(., Region == region, select = School) %>% unlist(use.names = FALSE)
+      return(regionalTeams)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print(cat("Region =", region))
+      return(NA)
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      print(cat("Region =", region))
+      return(NA)
+    }
+  )
 }
 ```
 

@@ -12,6 +12,7 @@ require(magrittr)
 require(stringr)
 require(rje)
 require(dplyr)
+require(assertthat)
 ```
 
 getNicknameTeam:
@@ -24,9 +25,40 @@ DEFAULT: nickname = "Tartans"
 
 ```{r}
 getNicknameTeam = function(teamData, nickname = "Tartans") {
-  # Vector of teams with nickname
-  nicknameTeams = teamData %>% subset(., Nickname %in% nickname, select = School) %>% unlist(use.names = FALSE)
-  return(nicknameTeams)
+  tryCatch(
+    {
+      validNick = sort(unique(teamData$Nickname))
+      
+      # Check if string input
+      if (!(is.string(nickname))) {
+        message("Invalid Nickname Input")
+        message("Valid Nickname Input includes ...")
+        return(validNick)
+      }
+      
+      # Check if nickname input is a valid nickname
+      if (!(nickname %in% validNick)) {
+        message("Invalid Nickname Input")
+        message("Valid Nickname Input includes ...")
+        return(validNick)
+      }
+      
+      # Vector of teams with nickname
+      nicknameTeams = teamData %>% subset(., Nickname %in% nickname, select = School) %>% unlist(use.names = FALSE)
+      return(nicknameTeams)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print(cat("Nickname =", nickname))
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      print(cat("Nickname =", nickname))
+      return(NA)
+    }
+  )
 }
 ```
 
@@ -35,4 +67,5 @@ Testing
 ```{r}
 teamData = getAllTeams()
 print(getNicknameTeam(teamData, nickname = "Bulldogs"))
+print(getNicknameTeam(teamData, nickname = "Spartans"))
 ```

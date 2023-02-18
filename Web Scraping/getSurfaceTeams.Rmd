@@ -25,9 +25,40 @@ DEFAULT: surface = "Turf"
 
 ```{r}
 getSurfaceTeams = function(teamData, surface = "Turf") {
-  # Vector of teams by field surface type
-  surfaceTeams = teamData %>% subset(., Surface == surface, select = School) %>% unlist(use.names = FALSE)
-  return(surfaceTeams)
+  tryCatch(
+    {
+      validSurface = sort(unique(teamData$Surface))
+      
+      # Check if string input
+      if (!(is.string(surface))) {
+        message("Invalid Surface Input")
+        message("Valid Surface Input includes ...")
+        return(validSurface)
+      }
+      
+      # Check if surface input is a valid surface
+      if (!(surface %in% validSurface)) {
+        message("Invalid Surface Input")
+        message("Valid Surface Input includes ...")
+        return(validSurface)
+      }
+      
+      # Vector of teams by field surface type
+      surfaceTeams = teamData %>% subset(., Surface == surface, select = School) %>% unlist(use.names = FALSE)
+      return(surfaceTeams)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print(cat("Surface =", surface))
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      print(cat("Surface =", surface))
+      return(NA)
+    }
+  )
 }
 ```
 

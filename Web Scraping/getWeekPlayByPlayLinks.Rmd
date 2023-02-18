@@ -12,6 +12,7 @@ require(magrittr)
 require(stringr)
 require(rje)
 require(dplyr)
+require(assertthat)
 ```
 
 
@@ -25,21 +26,43 @@ during the certain week of the defined season
 
 ```{r}
 getWeekPlayByPlayLinks = function(url) {
-  # read schedule of given week
-  schedule = read_html(url, as.data.frame = TRUE, stringsAsFactors = TRUE)
-  x = schedule %>% html_nodes("table") %>% .[[1]]
-  
-  # schedule as table
-  fullSchedule = x %>% html_table(fill = TRUE)
-  
-  # all links on table
-  allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
-  
-  # links to play by play
-  links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
-          end = "?view=plays"; adding = paste(begin, x, sep = ""); 
-          ending = paste(adding, end, sep = "");
-          return(ending)}))
+  tryCatch(
+    {
+      # Check if string input
+      if (!(is.string(url))) {
+        message("Invalid URL Input")
+        return(NA)
+      }
+      
+      # read schedule of given week
+      schedule = read_html(url, as.data.frame = TRUE, stringsAsFactors = TRUE)
+      x = schedule %>% html_nodes("table") %>% .[[1]]
+      
+      # schedule as table
+      fullSchedule = x %>% html_table(fill = TRUE)
+      
+      # all links on table
+      allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
+      
+      # links to play by play
+      links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
+              end = "?view=plays"; adding = paste(begin, x, sep = ""); 
+              ending = paste(adding, end, sep = "");
+              return(ending)}))
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print(cat("Function = getWeekPlayByPlayLinks"))
+      return(NA)
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      print(cat("Function = getWeekPlayByPlayLinks"))
+      return(NA)
+    }
+  )
 }
 ```
 

@@ -27,14 +27,21 @@ DEFAULT: conference = "PAC"
 getConferenceTeams = function(teamData, conference = "PAC") {
   tryCatch(
     {
+      validConfs = sort(unique(teamData$Conference))
+      
+      # check if string input
       if (!(is.string(conference))) {
         message("Invalid Conference Input")
-        return(NA)
+        message("Valid Conference Input includes ...")
+        return(validConfs)
       }
       conference = toupper(conference)
-      if (!(conference %in% unique(teamData$Conference))) {
+      
+      # check if conference input in valid Conferences
+      if (!(conference %in% validConfs)) {
         message("Invalid Conference Input")
-        return(NA)
+        message("Valid Conference Input includes ...")
+        return(validConfs)
       }
       # Vector of teams in conference
       confTeams = teamData %>% subset(., Conference == conference, select = School) %>% 
@@ -54,11 +61,6 @@ getConferenceTeams = function(teamData, conference = "PAC") {
     }
   )
 }
-#
-#  # Vector of teams in conference
-#  confTeams = teamData %>% subset(., Conference == conference, select = School) %>% unlist(use.names #= FALSE)
-#  return(confTeams)
-#}
 ```
 
 Testing

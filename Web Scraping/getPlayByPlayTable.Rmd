@@ -25,82 +25,239 @@ DEFAULT: wantedTeam = "Carnegie Mellon"
 
 multiple weeks for ONE team
 
-
 ```{r}
-getPlayByPlayTable = function(links, wantedTeam = "Carnegie Mellon") {
-  bigBadTable = NULL
-  for (series in links) {
-    
-    # play by play of game
-    gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
-    y = gameSeries %>% html_nodes("table") %>% .[[3]]
-    
-    # play by play as table
-    game = y %>% html_table(fill = TRUE)
-    colnames(game) = c("Situation", "Play")
-    
-    # getting teams
-    awayInfo = gameSeries %>% html_nodes("td") %>% .[[2]] %>% html_text()
-    awayInfo = unlist(str_extract_all(awayInfo, "[^\n\r\t]"))
-    awayInfo = str_c(awayInfo, collapse = "")
-    awayInfo = unlist(str_split(awayInfo, "   +"))
-    awayTeam = awayInfo[2]
-    awayTeamScore = awayInfo[3]
-    homeInfo = gameSeries %>% html_nodes("td") %>% .[[3]] %>% html_text()
-    homeInfo = unlist(str_extract_all(homeInfo, "[^\n\r\t]"))
-    homeInfo = str_c(homeInfo, collapse = "")
-    homeInfo = unlist(str_split(homeInfo, "   +"))
-    homeTeam = homeInfo[2]
-    homeTeamScore = homeInfo[3]
-    
+weekPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon")) {
+  tryCatch(
+    {
+      teamScrapeDone = FALSE
+      seen = c()
+      for (series in links) {
+        # if we already did the scrape of wanted teams, no need to continue
+        if (teamScrapeDone) { break }
+        
+        # play by play of game
+        gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
+        y = gameSeries %>% html_nodes("table") %>% .[[3]]
+        
+        # play by play as table
+        game = y %>% html_table(fill = TRUE)
+        colnames(game) = c("Situation", "Play")
+        
+        # getting teams
+        awayInfo = gameSeries %>% html_nodes("td") %>% .[[2]] %>% html_text()
+        awayInfo = unlist(str_extract_all(awayInfo, "[^\n\r\t]"))
+        awayInfo = str_c(awayInfo, collapse = "")
+        awayInfo = unlist(str_split(awayInfo, "   +"))
+        awayTeam = awayInfo[2]
+        awayTeamScore = awayInfo[3]
+        homeInfo = gameSeries %>% html_nodes("td") %>% .[[3]] %>% html_text()
+        homeInfo = unlist(str_extract_all(homeInfo, "[^\n\r\t]"))
+        homeInfo = str_c(homeInfo, collapse = "")
+        homeInfo = unlist(str_split(homeInfo, "   +"))
+        homeTeam = homeInfo[2]
+        homeTeamScore = homeInfo[3]
+        
         # only wanted teams
-    if ((!(homeTeam == wantedTeam) && !(awayTeam == wantedTeam))) {
-      next
-    }
-    
-    # getting teams, location, date, time
-    setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
-    setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
-    setting = str_c(setting, collapse = "")
-    setting = unlist(str_split(setting, "  "))
-    teamsLocation = setting[2]
-    teamsLocation = unlist(str_split(teamsLocation, " - "))
-    location = teamsLocation[2]
-    dateTime = setting[3]
-    dateTime = unlist(str_split(dateTime, " - "))
-    date = dateTime[1]
-    time = dateTime[2]
-
-    
-    # getting abbreviations for the teams
-    awayAbb = gsub(".*at (.+)", "\\1", game[3, ]$Situation)
-    awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
-    awayAbb = str_c(awayAbb, collapse = "")
-    homeAbbFound = FALSE
-    index = 4
-    while (!homeAbbFound) {
-      startOfGame = game[index,]
-      if (grepl("[1-4][(st)|(nd)|(rd)|(th)]", substr(startOfGame$Situation, 1, 3))) {
-        homeAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
-        homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
-        homeAbb = str_c(homeAbb, collapse = "")
-        if (homeAbb != awayAbb) {
-          homeAbbFound = TRUE
+        if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
+            (homeTeam %in% seen) || (awayTeam %in% seen)) {
+          next
+        }
+        else {
+          if (homeTeam %in% wantedTeams) {
+            seen = c(seen, homeTeam)
+          }
+          if (awayTeam %in% wantedTeams) {
+            seen = c(seen, awayTeam)
+          }
+          if (is.subset(wantedTeams, seen)) {
+            teamScrapeDone = TRUE
+            seen = c()
+          }
+        }
+        
+        # getting teams, location, date, time
+        setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
+        setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
+        setting = str_c(setting, collapse = "")
+        setting = unlist(str_split(setting, "  "))
+        teamsLocation = setting[2]
+        teamsLocation = unlist(str_split(teamsLocation, " - "))
+        location = teamsLocation[2]
+        dateTime = setting[3]
+        dateTime = unlist(str_split(dateTime, " - "))
+        date = dateTime[1]
+        time = dateTime[2]
+        
+        # getting abbreviations for the teams
+        awayAbb = gsub(".*at (.+)", "\\1", game[3, ]$Situation)
+        awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
+        awayAbb = str_c(awayAbb, collapse = "")
+        homeAbbFound = FALSE
+        index = 4
+        while (!homeAbbFound) {
+          startOfGame = game[index,]
+          if (grepl("[1-4][(st)|(nd)|(rd)|(th)]", substr(startOfGame$Situation, 1, 3))) {
+            homeAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
+            homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
+            homeAbb = str_c(homeAbb, collapse = "")
+            if (homeAbb != awayAbb) {
+              homeAbbFound = TRUE
+            }
+          }
+          index = index + 1
+        }
+        
+        playByPlay = getGamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
+        if (is.null(bigBadTable)) {
+          bigBadTable = playByPlay
+        }
+        else {
+          bigBadTable = rbind(bigBadTable, playByPlay)
         }
       }
-      index = index + 1
+      return(bigBadTable)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print("Function = weekPlayByPlayTable")
+      return(NA)
+    },
+    warning=function(w) {
+      message('A Warning Occurred')
+      print(w)
+      print("Function = weekPlayByPlayTable")
+      return(NA)
     }
-    
-    playByPlay = getGamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
-    if (is.null(bigBadTable)) {
-      bigBadTable = playByPlay
-    }
-    else {
-      bigBadTable = rbind(bigBadTable, playByPlay)
-    }
-  }
-  return(bigBadTable)
+  )
 }
+```
+
+```{r}
+options(error=recover, show.error.locations=TRUE, warn=2)
+seasonScheduleLinks = getSeasonLinks(weeks = 1)
+teamData = getAllTeams()
+bigBadTable = NULL
+
+# Subset of teams wanted
+confTeams = getConferenceTeams(teamData)
+
+
+for (week in seasonScheduleLinks) {
+  weekLink = getWeekPlayByPlayLinks(week)
+  bigBadTable = weekPlayByPlayTable(weekLink, bigBadTable, c("Westminster (Pa.)"))
+}
+```
+
+
+```{r}
+# getPlayByPlayTable = function(links, wantedTeam = c("Carnegie Mellon")) {
+#   tryCatch(
+#     {
+#       bigBadTable = NULL
+#       seen = c()
+#       for (series in links) {
+#         
+#         # play by play of game
+#         gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
+#         y = gameSeries %>% html_nodes("table") %>% .[[3]]
+#         
+#         # play by play as table
+#         game = y %>% html_table(fill = TRUE)
+#         colnames(game) = c("Situation", "Play")
+#         
+#         # getting teams
+#         awayInfo = gameSeries %>% html_nodes("td") %>% .[[2]] %>% html_text()
+#         awayInfo = unlist(str_extract_all(awayInfo, "[^\n\r\t]"))
+#         awayInfo = str_c(awayInfo, collapse = "")
+#         awayInfo = unlist(str_split(awayInfo, "   +"))
+#         awayTeam = awayInfo[2]
+#         awayTeamScore = awayInfo[3]
+#         homeInfo = gameSeries %>% html_nodes("td") %>% .[[3]] %>% html_text()
+#         homeInfo = unlist(str_extract_all(homeInfo, "[^\n\r\t]"))
+#         homeInfo = str_c(homeInfo, collapse = "")
+#         homeInfo = unlist(str_split(homeInfo, "   +"))
+#         homeTeam = homeInfo[2]
+#         homeTeamScore = homeInfo[3]
+#         
+#         # only wanted teams
+#         #if ((!(homeTeam %in% wantedTeam) && !(awayTeam %in% wantedTeam))) {
+#         #  next
+#         #}
+#         
+#         # only wanted teams
+#         if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
+#             (homeTeam %in% seen) || (awayTeam %in% seen)) {
+#           next
+#         }
+#         else {
+#           if (homeTeam %in% wantedTeams) {
+#             seen = c(seen, homeTeam)
+#           }
+#           if (awayTeam %in% wantedTeams) {
+#             seen = c(seen, awayTeam)
+#           }
+#           if (is.subset(wantedTeams, seen)) {
+#             teamScrapeDone = TRUE
+#             seen = c()
+#           }
+#         }
+#         
+#         # getting teams, location, date, time
+#         setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
+#         setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
+#         setting = str_c(setting, collapse = "")
+#         setting = unlist(str_split(setting, "  "))
+#         teamsLocation = setting[2]
+#         teamsLocation = unlist(str_split(teamsLocation, " - "))
+#         location = teamsLocation[2]
+#         dateTime = setting[3]
+#         dateTime = unlist(str_split(dateTime, " - "))
+#         date = dateTime[1]
+#         time = dateTime[2]
+#     
+#         
+#         # getting abbreviations for the teams
+#         awayAbb = gsub(".*at (.+)", "\\1", game[3, ]$Situation)
+#         awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
+#         awayAbb = str_c(awayAbb, collapse = "")
+#         homeAbbFound = FALSE
+#         index = 4
+#         while (!homeAbbFound) {
+#           startOfGame = game[index,]
+#           if (grepl("[1-4][(st)|(nd)|(rd)|(th)]", substr(startOfGame$Situation, 1, 3))) {
+#             homeAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
+#             homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
+#             homeAbb = str_c(homeAbb, collapse = "")
+#             if (homeAbb != awayAbb) {
+#               homeAbbFound = TRUE
+#             }
+#           }
+#           index = index + 1
+#         }
+#         
+#         playByPlay = getGamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
+#         if (is.null(bigBadTable)) {
+#           bigBadTable = playByPlay
+#         }
+#         else {
+#           bigBadTable = rbind(bigBadTable, playByPlay)
+#         }
+#       }
+#       return(bigBadTable)
+#     },
+#     error=function(e) {
+#       message('An Error Occurred')
+#       print(e)
+#       return(NA)
+#     },
+#     warning=function(w) {
+#       message('A Warning Occurred')
+#       print(w)
+#       return(NA)
+#     }
+#   )
+# }
 ```
 
 
@@ -108,13 +265,14 @@ Testing
 ```{r}
 # gets a play by play table from the Carnegie Mellon vs Whitworth 2022 game week 1
 #links = c("https://www.d3football.com/seasons/2022/boxscores/20220902_wovk.xml?view=plays")
-seasonLinks = getSeasonLinks(2022, 10)
-playByPlayLinks = c()
-for (wk in seasonLinks) {
-  wkLinks = getWeekPlayByPlayLinks(wk)
-  playByPlayLinks = append(playByPlayLinks, wkLinks)
-}
-df = getPlayByPlayTable(playByPlayLinks, wantedTeam = "Carnegie Mellon")
+
+# seasonLinks = getSeasonLinks(2022, 1)
+# playByPlayLinks = c()
+# for (wk in seasonLinks) {
+#   wkLinks = getWeekPlayByPlayLinks(wk)
+#   playByPlayLinks = append(playByPlayLinks, wkLinks)
+# }
+# df = getPlayByPlayTable(playByPlayLinks)
 ```
 
 
