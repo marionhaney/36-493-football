@@ -135,7 +135,7 @@ weekPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mel
 
 ```{r}
 options(error=recover, show.error.locations=TRUE, warn=2)
-seasonScheduleLinks = getSeasonLinks(weeks = 1)
+seasonScheduleLinks = getSeasonLinks(weeks = 3)
 teamData = getAllTeams()
 bigBadTable = NULL
 
@@ -145,7 +145,7 @@ confTeams = getConferenceTeams(teamData)
 
 for (week in seasonScheduleLinks) {
   weekLink = getWeekPlayByPlayLinks(week)
-  bigBadTable = weekPlayByPlayTable(weekLink, bigBadTable, c("Westminster (Pa.)"))
+  bigBadTable = weekPlayByPlayTable(weekLink, bigBadTable, wantedTeams = confTeams)
 }
 ```
 
