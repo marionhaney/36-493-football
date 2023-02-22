@@ -134,10 +134,54 @@ for (i in 1:max(init.data$game)) {
 TD.score = c("Complete, TD", "Rush, TD", "Interception, Def TD", "Scramble, TD",
              "Blocked, Def TD", "Fumble, Def TD") # check the result column
 FG.score = c("FG", "FG Block") # check the play type column, and then result column for good
+safety.score = c("Safety")
 
 TD.score.inds = which(init.data$result %in% TD.score)
-FG.score.rows = init.data[init.data$play.type %in% FG.score, ]
+
+FG.rows = init.data[init.data$play.type %in% FG.score, ]
+
+#Manually fill in good/no good/block for FGs
+na.fill = FG.rows$result
+na.fill[5] = "Good"
+na.fill[6] = "Good"
+na.fill[8] = "No Good"
+na.fill[9] = "Good"
+na.fill[21] = "Good"
+na.fill[23] = "Good"
+na.fill[24] = "Good"
+na.fill[26] = "No Good"
+na.fill[27] = "No Good"
+na.fill[28] = "No Good"
+na.fill[30] = "No Good"
+FG.rows$filled = na.fill
+
+FG.na.rm.rows = FG.rows[!is.na(FG.rows$filled), ] # Removes incorrectly tagged FGs (really XPs)
+FG.good.rows = FG.na.rm.rows[FG.na.rm.rows$filled == "Good", ]
+FG.score.inds = rep(0, length(FG.good.rows$filled))
+for (i in 1:length(FG.good.rows$filled)) {
+  play = FG.good.rows[i, "play"]
+  game = FG.good.rows[i, "game"]
+  ind = which(init.data$game == game & init.data$play == play)
+  FG.score.inds[i] = ind
+}
+
+#inds.merged = 
+
 #TBD add if the FG is good or not
+
+#Outline
+  #TD Score
+    #TD For (on O, or on D + int/fumble TD)
+    #TD Against (on D, or on O +int/fumble TD)
+  #FG Score
+    #FG For (on O previous play + good, on FG unit)
+    #FG Against (on D previous play + good, on FG Block unit)
+  #Safety Score
+    #Safety Score (on D)
+    #Safety Against (on O)
+  #No score
+    #No other scores for rest of game
+
 
 init.data$next.score = NA
 ```
