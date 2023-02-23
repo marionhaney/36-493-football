@@ -118,10 +118,15 @@ init.data[init.data$play.type %in% drive.preceders, "drive"] = NA
 last.plays = which(!mapply(identical, init.data$drive, lead(init.data$drive, default=0)) & 
                      !is.na(init.data$drive))
 last.results = init.data$play.type[last.plays]
-last.results = ifelse(last.results=="Pass" | last.results=="Run", "Turnover on Downs", 
+down = init.data$dn[last.plays]
+result = init.data$result[last.plays]
+last.results = ifelse((last.results=="Pass" | last.results=="Run") & down==4, "Turnover on Downs", 
+               ifelse((last.results=="Pass" | last.results=="Run") & result %in% drive.enders.result,
+                      "Turnover",
+               ifelse(last.results=="Pass" | last.results=="Run", "Time Expired",
                ifelse(last.results=="Punt Rec", "Punt", 
                ifelse(last.results %in% c("Extra Pt.","Extra Pt. Block","2 Pt.","2 Pt. Defend"), "TD",
-               ifelse(last.results=="FG Block", "FG", last.results))))
+               ifelse(last.results=="FG Block", "FG", last.results))))))
 offset = 0
 init.data$drive.outcome = NA
 for (i in 1:max(init.data$game)) {
