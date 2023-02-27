@@ -141,8 +141,10 @@ TD.score = c("Complete, TD", "Rush, TD", "Interception, Def TD", "Scramble, TD",
 FG.score = c("FG", "FG Block") # check the play type column, and then result column for good
 safety.score = c("Safety")
 
+  #Get indices for TDs
 TD.score.inds = which(init.data$result %in% TD.score)
 
+  #Get indices for FGs
 FG.rows = init.data[init.data$play.type %in% FG.score, ]
 
 #Manually fill in good/no good/block for FGs
@@ -170,9 +172,11 @@ for (i in 1:length(FG.good.rows$filled)) {
   FG.score.inds[i] = ind
 }
 
-#inds.merged = 
+  #Get indices for safeties
+safety.score.inds = which(init.data$result %in% safety.score)
 
-#TBD add if the FG is good or not
+if (length(safety.score.inds) == 0) {inds.merged = sort(append(TD.score.inds, FG.score.inds))
+ } else inds.merged = sort(append(TD.score.inds, FG.score.inds, safety.score.inds))
 
 #Outline
   #TD Score
@@ -187,7 +191,85 @@ for (i in 1:length(FG.good.rows$filled)) {
   #No score
     #No other scores for rest of game
 
-
 init.data$next.score = NA
+KOs = c("KO", "KO Rec", "Onside Kick Rec")
+
+for (i in 1:num.games) { # quite inefficient code :(
+  if (i > 1) break
+  
+  #cat("Game", i)
+  
+  ind.game = init.data[init.data$game == i, ]
+  ind.game = ind.game[!is.na(ind.game$drive.outcome), ]
+  
+  # TD.rows = ind.game[ind.game$drive.outcome == "TD", ]
+  # FG.rows = ind.game[ind.game$drive.outcome == "FG", ]
+  # safety.rows = ind.game[ind.game$drive.outcome == "Safety", ]
+  # no.score.rows = ind.game[ind.game$drive.outcome == "Time Expired", ]
+  
+  score.rows = ind.game[(ind.game$drive.outcome == "TD") | 
+                        (ind.game$drive.outcome == "FG") | 
+                        (ind.game$drive.outcome == "Safety") | 
+                        (ind.game$drive.outcome == "Time Expired"), ]
+  
+  for (score.ind in 1:(dim(score.rows)[1])) {
+    
+    # cat("\nRow:", j)
+    # cat("\nTheoretical Next play:", score.rows[score.ind, "play"] + 1)
+    # cat("\nActual Next Play:", score.rows[score.ind + 1, "play"])
+    
+    
+    if ((score.ind == (dim(score.rows)[1])) | 
+        (score.rows[score.ind, "play"] + 1 != score.rows[score.ind + 1, "play"])) {
+      # cat("\nEntered if statement.")
+      
+      global.ind = which((init.data$game == i) & 
+                         (init.data$play == score.rows[score.ind, "play"])) #index in init.data
+      prev.odk = init.data[global.ind - 1, "odk"]
+      prev.result = init.data[global.ind - 1, "result"]
+      cur.play.type = init.data[global.ind, "play.type"]
+      drive.outcome = score.rows[score.ind, "drive.outcome"]
+      
+      cat("\nDrive outcome:", drive.outcome)
+      
+      if (drive.outcome == "TD") {
+        cat("\nENTERED TD CASE")
+        cat("\nPrevious side of posession:", prev.odk)
+        cat("\nPrevious result:", prev.result)
+        
+        score.type = ifelse((prev.odk == "O" | # offensive TD
+                               ((prev.odk == "D") & # defensive TD
+                                  ((prev.result == "Interception, Def TD") | #caused by an int
+                                     (prev.result == "Fumble, Def TD")))), #caused by a fumble
+                            "TD For",
+                            "TD Against")
+        init.data[start.ind:global.ind, "next.score"] = score.type
+        start.ind = global.ind + 1
+      }
+      else if (drive.outcome == "FG") {
+        cat("\nENTERED FG CASE")
+        cat("\nCurrent play type:", cur.play.type)
+        
+        score.type = ifelse(cur.play.type == "FG",
+                            "FG For",
+                            "FG Against")
+        
+        cat("\nScore type:", score.type)
+        
+        init.data[start.ind:global.ind, "next.score"] = score.type
+        start.ind = global.ind + 1
+      }
+      else if (drive.outcome == "Safety") {
+        cat("\nENTERED SAFETY CASE")
+      }
+      else if (drive.outcome == "Time Expired") {
+        cat("\nENTERED NO SCORE CASE")
+        
+        init.data[start.ind:global.ind, "next.score"] = "No Score"
+        start.ind = global.ind + 1
+      }
+    }
+  }
+}
 ```
 
