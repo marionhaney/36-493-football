@@ -29,6 +29,12 @@ for (i in 2:nrow(init.data)) {
   init.data$dist[i] = init.data$dist[i-1] - init.data$gn.ls[i-1]
 }
 
+# Fixing the Extra Points labeled as FGs
+init.data[1442, "play.type"] = "Extra Pt."
+init.data[1556, "play.type"] = "Extra Pt."
+init.data[1975, "play.type"] = "Extra Pt."
+init.data[1994, "play.type"] = "Extra Pt."
+
 ```
 
 ```{r}
@@ -135,48 +141,39 @@ for (i in 1:max(init.data$game)) {
   offset = offset + max(init.data$drive[ind], na.rm=TRUE)
 }
 
-# creating next scoring play
-TD.score = c("Complete, TD", "Rush, TD", "Interception, Def TD", "Scramble, TD",
-             "Blocked, Def TD", "Fumble, Def TD") # check the result column
+# # creating next scoring play
+# TD.score = c("Complete, TD", "Rush, TD", "Interception, Def TD", "Scramble, TD",
+#              "Blocked, Def TD", "Fumble, Def TD") # check the result column
 FG.score = c("FG", "FG Block") # check the play type column, and then result column for good
-safety.score = c("Safety")
+# safety.score = c("Safety")
+# 
+#   #Get indices for TDs
+# TD.score.inds = which(init.data$result %in% TD.score)
+# 
+#   #Get indices for FGs
 
-  #Get indices for TDs
-TD.score.inds = which(init.data$result %in% TD.score)
-
-  #Get indices for FGs
+#Manually input missing FG good/no good values
 FG.rows = init.data[init.data$play.type %in% FG.score, ]
+FG.rows[c(5, 6, 9, 20, 21, 22), "result"] = "Good"
+FG.rows[c(8, 23, 24, 25, 26, 28, 29), "result"] = "No Good"
+  #Index 29 was a muffed FG attempt
+init.data[init.data$play.type %in% FG.score, "result"] = FG.rows$result
 
-#Manually fill in good/no good/block for FGs
-na.fill = FG.rows$result
-na.fill[5] = "Good"
-na.fill[6] = "Good"
-na.fill[8] = "No Good"
-na.fill[9] = "Good"
-na.fill[21] = "Good"
-na.fill[23] = "Good"
-na.fill[24] = "Good"
-na.fill[26] = "No Good"
-na.fill[27] = "No Good"
-na.fill[28] = "No Good"
-na.fill[30] = "No Good"
-FG.rows$filled = na.fill
-
-FG.na.rm.rows = FG.rows[!is.na(FG.rows$filled), ] # Removes incorrectly tagged FGs (really XPs)
-FG.good.rows = FG.na.rm.rows[FG.na.rm.rows$filled == "Good", ]
-FG.score.inds = rep(0, length(FG.good.rows$filled))
-for (i in 1:length(FG.good.rows$filled)) {
-  play = FG.good.rows[i, "play"]
-  game = FG.good.rows[i, "game"]
-  ind = which(init.data$game == game & init.data$play == play)
-  FG.score.inds[i] = ind
-}
-
-  #Get indices for safeties
-safety.score.inds = which(init.data$result %in% safety.score)
-
-if (length(safety.score.inds) == 0) {inds.merged = sort(append(TD.score.inds, FG.score.inds))
- } else inds.merged = sort(append(TD.score.inds, FG.score.inds, safety.score.inds))
+# FG.na.rm.rows = FG.rows[!is.na(FG.rows$filled), ] # Removes incorrectly tagged FGs (really XPs)
+# FG.good.rows = FG.na.rm.rows[FG.na.rm.rows$filled == "Good", ]
+# FG.score.inds = rep(0, length(FG.good.rows$filled))
+# for (i in 1:length(FG.good.rows$filled)) {
+#   play = FG.good.rows[i, "play"]
+#   game = FG.good.rows[i, "game"]
+#   ind = which(init.data$game == game & init.data$play == play)
+#   FG.score.inds[i] = ind
+# }
+# 
+#   #Get indices for safeties
+# safety.score.inds = which(init.data$result %in% safety.score)
+# 
+# if (length(safety.score.inds) == 0) {inds.merged = sort(append(TD.score.inds, FG.score.inds))
+#  } else inds.merged = sort(append(TD.score.inds, FG.score.inds, safety.score.inds))
 
 #Outline
   #TD Score
@@ -192,84 +189,99 @@ if (length(safety.score.inds) == 0) {inds.merged = sort(append(TD.score.inds, FG
     #No other scores for rest of game
 
 init.data$next.score = NA
-KOs = c("KO", "KO Rec", "Onside Kick Rec")
 
-for (i in 1:num.games) { # quite inefficient code :(
-  if (i > 1) break
-  
-  #cat("Game", i)
-  
-  ind.game = init.data[init.data$game == i, ]
-  ind.game = ind.game[!is.na(ind.game$drive.outcome), ]
-  
-  # TD.rows = ind.game[ind.game$drive.outcome == "TD", ]
-  # FG.rows = ind.game[ind.game$drive.outcome == "FG", ]
-  # safety.rows = ind.game[ind.game$drive.outcome == "Safety", ]
-  # no.score.rows = ind.game[ind.game$drive.outcome == "Time Expired", ]
-  
-  score.rows = ind.game[(ind.game$drive.outcome == "TD") | 
-                        (ind.game$drive.outcome == "FG") | 
-                        (ind.game$drive.outcome == "Safety") | 
-                        (ind.game$drive.outcome == "Time Expired"), ]
-  
-  for (score.ind in 1:(dim(score.rows)[1])) {
-    
-    # cat("\nRow:", j)
-    # cat("\nTheoretical Next play:", score.rows[score.ind, "play"] + 1)
-    # cat("\nActual Next Play:", score.rows[score.ind + 1, "play"])
-    
-    
-    if ((score.ind == (dim(score.rows)[1])) | 
-        (score.rows[score.ind, "play"] + 1 != score.rows[score.ind + 1, "play"])) {
-      # cat("\nEntered if statement.")
-      
-      global.ind = which((init.data$game == i) & 
-                         (init.data$play == score.rows[score.ind, "play"])) #index in init.data
-      prev.odk = init.data[global.ind - 1, "odk"]
-      prev.result = init.data[global.ind - 1, "result"]
-      cur.play.type = init.data[global.ind, "play.type"]
-      drive.outcome = score.rows[score.ind, "drive.outcome"]
-      
-      cat("\nDrive outcome:", drive.outcome)
-      
-      if (drive.outcome == "TD") {
-        cat("\nENTERED TD CASE")
-        cat("\nPrevious side of posession:", prev.odk)
-        cat("\nPrevious result:", prev.result)
-        
-        score.type = ifelse((prev.odk == "O" | # offensive TD
-                               ((prev.odk == "D") & # defensive TD
-                                  ((prev.result == "Interception, Def TD") | #caused by an int
-                                     (prev.result == "Fumble, Def TD")))), #caused by a fumble
-                            "TD For",
-                            "TD Against")
-        init.data[start.ind:global.ind, "next.score"] = score.type
-        start.ind = global.ind + 1
-      }
-      else if (drive.outcome == "FG") {
-        cat("\nENTERED FG CASE")
-        cat("\nCurrent play type:", cur.play.type)
-        
-        score.type = ifelse(cur.play.type == "FG",
-                            "FG For",
-                            "FG Against")
-        
-        cat("\nScore type:", score.type)
-        
-        init.data[start.ind:global.ind, "next.score"] = score.type
-        start.ind = global.ind + 1
-      }
-      else if (drive.outcome == "Safety") {
-        cat("\nENTERED SAFETY CASE")
-      }
-      else if (drive.outcome == "Time Expired") {
-        cat("\nENTERED NO SCORE CASE")
-        
-        init.data[start.ind:global.ind, "next.score"] = "No Score"
-        start.ind = global.ind + 1
-      }
-    }
-  }
-}
+init.data$TD.score = str_detect(init.data$result, "TD")
+init.data[is.na(init.data$TD.score), "TD.score"] = F 
+init.data$FG = str_detect(init.data$play.type, "FG")
+init.data[is.na(init.data$FG), "FG"] = F 
+init.data$FG.score = ((init.data$FG == T) & (init.data$result == "Good"))
+init.data$safety.score = F # implement once we have data with safeties
+
+init.data[init.data$TD.score == T & init.data$odk == "O", "next.score"] = "TD For"
+init.data[init.data$TD.score == T & init.data$odk == "D", "next.score"] = "TD Against"
+
+init.data[init.data$FG.score == T & 
+            !is.na(init.data$play.type) & 
+            init.data$play.type == "FG", "next.score"] = "FG For"
+init.data[init.data$FG.score == T & init.data$play.type == "FG Block", "next.score"] = "FG Against"
+
+
+# for (i in 1:num.games) { # quite inefficient code :(
+#   if (i > 1) break
+#   
+#   #cat("Game", i)
+#   
+#   ind.game = init.data[init.data$game == i, ]
+#   ind.game = ind.game[!is.na(ind.game$drive.outcome), ]
+#   
+#   # TD.rows = ind.game[ind.game$drive.outcome == "TD", ]
+#   # FG.rows = ind.game[ind.game$drive.outcome == "FG", ]
+#   # safety.rows = ind.game[ind.game$drive.outcome == "Safety", ]
+#   # no.score.rows = ind.game[ind.game$drive.outcome == "Time Expired", ]
+#   
+#   score.rows = ind.game[(ind.game$drive.outcome == "TD") | 
+#                         (ind.game$drive.outcome == "FG") | 
+#                         (ind.game$drive.outcome == "Safety") | 
+#                         (ind.game$drive.outcome == "Time Expired"), ]
+#   
+#   for (score.ind in 1:(dim(score.rows)[1])) {
+#     
+#     # cat("\nRow:", j)
+#     # cat("\nTheoretical Next play:", score.rows[score.ind, "play"] + 1)
+#     # cat("\nActual Next Play:", score.rows[score.ind + 1, "play"])
+#     
+#     
+#     if ((score.ind == (dim(score.rows)[1])) | 
+#         (score.rows[score.ind, "play"] + 1 != score.rows[score.ind + 1, "play"])) {
+#       # cat("\nEntered if statement.")
+#       
+#       global.ind = which((init.data$game == i) & 
+#                          (init.data$play == score.rows[score.ind, "play"])) #index in init.data
+#       prev.odk = init.data[global.ind - 1, "odk"]
+#       prev.result = init.data[global.ind - 1, "result"]
+#       cur.play.type = init.data[global.ind, "play.type"]
+#       drive.outcome = score.rows[score.ind, "drive.outcome"]
+#       
+#       cat("\nDrive outcome:", drive.outcome)
+#       
+#       if (drive.outcome == "TD") {
+#         cat("\nENTERED TD CASE")
+#         cat("\nPrevious side of posession:", prev.odk)
+#         cat("\nPrevious result:", prev.result)
+#         
+#         score.type = ifelse((prev.odk == "O" | # offensive TD
+#                                ((prev.odk == "D") & # defensive TD
+#                                   ((prev.result == "Interception, Def TD") | #caused by an int
+#                                      (prev.result == "Fumble, Def TD")))), #caused by a fumble
+#                             "TD For",
+#                             "TD Against")
+#         init.data[start.ind:global.ind, "next.score"] = score.type
+#         start.ind = global.ind + 1
+#       }
+#       else if (drive.outcome == "FG") {
+#         cat("\nENTERED FG CASE")
+#         cat("\nCurrent play type:", cur.play.type)
+#         
+#         score.type = ifelse(cur.play.type == "FG",
+#                             "FG For",
+#                             "FG Against")
+#         
+#         cat("\nScore type:", score.type)
+#         
+#         init.data[start.ind:global.ind, "next.score"] = score.type
+#         start.ind = global.ind + 1
+#       }
+#       else if (drive.outcome == "Safety") {
+#         cat("\nENTERED SAFETY CASE")
+#       }
+#       else if (drive.outcome == "Time Expired") {
+#         cat("\nENTERED NO SCORE CASE")
+#         
+#         init.data[start.ind:global.ind, "next.score"] = "No Score"
+#         start.ind = global.ind + 1
+#       }
+#     }
+#   }
+# }
 ```
 
