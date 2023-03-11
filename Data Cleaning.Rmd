@@ -13,8 +13,16 @@ library(tidyverse)
 ```{r}
 ## Data initialization
 
+# Drop KOs, Extra Pts, 2 Pt conversions, Penalties, and Timeouts
 init.data.full = read.csv("Initial_Play_-_By_-_Play.csv", na=c(""))
 KO.plays = c("KO", "KO Rec", "Onside Kick Rec")
+
+# Fixing the Extra Points labeled as FGs
+init.data.full[1442, "play.type"] = "Extra Pt."
+init.data.full[1556, "play.type"] = "Extra Pt."
+init.data.full[1975, "play.type"] = "Extra Pt."
+init.data.full[1994, "play.type"] = "Extra Pt."
+
 extra.pt.rows = which(init.data.full$PLAY.TYPE == "Extra Pt." |
                         init.data.full$PLAY.TYPE == "Extra Pt. Block")
 KO.rows = which(init.data.full$PLAY.TYPE %in% KO.plays)
@@ -22,10 +30,26 @@ two.pt.rows = which(init.data.full$PLAY.TYPE == "2 Pt." |
                       init.data.full$PLAY.TYPE == "2 Pt. Defend")
 penalty.rows = which(init.data.full$RESULT == "Penalty")
 timeout.rows = which(init.data.full$RESULT == "Timeout")
+
 rem.rows = c(extra.pt.rows, KO.rows, two.pt.rows, penalty.rows, timeout.rows)
-init.data = init.data.full[-rem.rows, ] #DROP KOs, Extra Pts, 2 Pt comnversions, Penalties, and Timeouts
+init.data = init.data.full[-rem.rows, ]
 
 # Create possession team column
+init.data$pos.team = ifelse(init.data$ODK == "O", "CMU", "Opp")
+
+  # fill in missing values that shouldn't be missing
+init.data[945, "ODK"] = "D"
+init.data[955, "ODK"] = "D"
+init.data[980, "ODK"] = "O"
+init.data[1025, "ODK"] = "D"
+init.data[1292, "ODK"] = "O"
+init.data[1318, "ODK"] = "D"
+
+for (i in 1:nrow(init.data)) {
+  if (init.data[i, "ODK"] == "K") {
+    init.data[i, "pos.team"] = init.data[i - 1, "pos.team"]
+  }
+}
 
 # convert character variables to factor
 #factor.vars = c("ODK", "RESULT", "PLAY.TYPE")
@@ -40,20 +64,13 @@ for (i in 2:nrow(init.data)) {
   if (init.data$dn[i]==1 | is.na(init.data$dn[i])) { next }
   init.data$dist[i] = init.data$dist[i-1] - init.data$gn.ls[i-1]
 }
-
-# Fixing the Extra Points labeled as FGs
-init.data[1442, "play.type"] = "Extra Pt."
-init.data[1556, "play.type"] = "Extra Pt."
-init.data[1975, "play.type"] = "Extra Pt."
-init.data[1994, "play.type"] = "Extra Pt."
-
 ```
 
 ```{r}
 ## Cleaning
 
 # creating game ID
-first.plays = which(init.data$play==1)
+first.plays = which(init.data$play==2)
 init.data$game = length(first.plays)
 for (i in 1:(length(first.plays)-1)) {
   first = first.plays[i]
