@@ -35,7 +35,6 @@ rem.rows = c(extra.pt.rows, KO.rows, two.pt.rows, penalty.rows, timeout.rows)
 init.data = init.data.full[-rem.rows, ]
 
 # Create possession team column
-init.data$pos.team = ifelse(init.data$ODK == "O", "CMU", "Opp")
 
   # fill in missing values that shouldn't be missing
 init.data[945, "ODK"] = "D"
@@ -44,6 +43,8 @@ init.data[980, "ODK"] = "O"
 init.data[1025, "ODK"] = "D"
 init.data[1292, "ODK"] = "O"
 init.data[1318, "ODK"] = "D"
+
+init.data$pos.team = ifelse(init.data$ODK == "O", "CMU", "Opp")
 
 for (i in 1:nrow(init.data)) {
   if (init.data[i, "ODK"] == "K") {
@@ -86,66 +87,34 @@ init.data[negative.yds, "yard.ln"] = init.data[negative.yds, "yard.ln"] + 100
 names(init.data)[5] = "yds.to.endzone"
 
 # creating drive ID
-insert = data.frame(play = 11, odk = as.factor("O"), dn = 0, dist = -1, 
-                    yds.to.endzone = 101, gn.ls = -101, result = as.factor(""), 
-                    play.type = as.factor("Run"), game = 8)
-init.data = rbind(init.data[1:1256, ], insert, init.data[1257:2082, ])
+# insert = data.frame(play = 11, odk = as.factor("O"), dn = 0, dist = -1, 
+#                     yds.to.endzone = 101, gn.ls = -101, result = as.factor(""), 
+#                     play.type = as.factor("Run"), game = 8)
+# init.data = rbind(init.data[1:1256, ], insert, init.data[1257:2082, ])
 
-init.data$drive = rep(0, dim(init.data)[1])
-prev.plays = 1
-
-drive.preceders = c("KO", "KO Rec", "Onside Kick Rec")
-drive.enders.play.type = c("Punt Rec", "Punt", "Extra Pt.", "Extra Pt. Block", 
-                           "FG Block", "FG", "2 Pt.", "2 Pt. Defend")
-drive.enders.result = c("Fumble", "Interception", "Sack, Fumble")
-
-od = c(as.factor("O"), as.factor("D"))
 num.games = max(init.data$game)
 
-for (i in 1:num.games) { # Go through every game
-  ind.game = init.data[init.data$game == i, ]
-  num.plays = max(ind.game$play)
-  drive.col = rep(0, num.plays)
+for (game.ind in 1:num.games) {
+  
+  ind.game = init.data[init.data$game == game.ind, ]
   drive = 1
   
-  for (j in 1:num.plays) { # Go through every play in the game
-    cur.result = ind.game[j, "result"]
-    cur.play.type = ind.game[j, "play.type"]
+  for (j in 1:(nrow(ind.game) - 1)) {
     
-    if ((cur.play.type %in% drive.preceders) &&
-        (j != 1) &&
-        (j != num.plays) &&
-       !(ind.game[j - 1, "play.type"] %in% drive.enders.play.type) &&
-       !(ind.game[j - 1, "play.type"] %in% drive.preceders)) {
-      drive = drive + 1
-    }
+    global.ind = which(init.data$game == game.ind & 
+                         init.data$play == ind.game[j, "play"])
     
-    drive.col[j] = drive
+    cur.pos = ind.game[j, "pos.team"]
+    next.pos = ind.game[j + 1, "pos.team"]
     
-    if ((j != 1) && # Not opening kickoff
-        (j != num.plays) && # Don't want index out of bounds later
-        
-        # Fumbles, Interceptions, Punts, scoring plays
-        ((cur.play.type %in% drive.enders.play.type) ||
-         ((cur.result %in% drive.enders.result) &&
-          (ind.game[j, "odk"] %in% od) && # Current play must be offense or defense
-          (ind.game[j + 1, "odk"] %in% od) && # Next play must be offense or defense
-          (ind.game[j, "odk"] != ind.game[j + 1, "odk"]))) ||
-        
-        # Turnover on downs
-        ((ind.game[j, "odk"] %in% od) && # Current play must be offense or defense
-         (ind.game[j + 1, "odk"] %in% od) && # Next play must be offense or defense
-         (ind.game[j, "odk"] != ind.game[j + 1, "odk"])) # Consecutive plays are on different sides of the ball
-        ) {
-      drive = drive + 1
-    }
+    init.data[global.ind, "drive"] = drive
+    
+    if (cur.pos != next.pos) drive = drive + 1
   }
   
-  init.data[prev.plays:(num.plays + prev.plays - 1), "drive"] = drive.col
-  prev.plays = prev.plays + num.plays
+  init.data[global.ind + 1, "drive"] = drive
+  
 }
-
-init.data[init.data$play.type %in% drive.preceders, "drive"] = NA
 ```
 
 ```{r}
