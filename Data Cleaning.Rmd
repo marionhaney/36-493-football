@@ -13,7 +13,19 @@ library(tidyverse)
 ```{r}
 ## Data initialization
 
-init.data = read.csv("Initial_Play_-_By_-_Play.csv", na=c(""))
+init.data.full = read.csv("Initial_Play_-_By_-_Play.csv", na=c(""))
+KO.plays = c("KO", "KO Rec", "Onside Kick Rec")
+extra.pt.rows = which(init.data.full$PLAY.TYPE == "Extra Pt." |
+                        init.data.full$PLAY.TYPE == "Extra Pt. Block")
+KO.rows = which(init.data.full$PLAY.TYPE %in% KO.plays)
+two.pt.rows = which(init.data.full$PLAY.TYPE == "2 Pt." | 
+                      init.data.full$PLAY.TYPE == "2 Pt. Defend")
+penalty.rows = which(init.data.full$RESULT == "Penalty")
+timeout.rows = which(init.data.full$RESULT == "Timeout")
+rem.rows = c(extra.pt.rows, KO.rows, two.pt.rows, penalty.rows, timeout.rows)
+init.data = init.data.full[-rem.rows, ] #DROP KOs, Extra Pts, 2 Pt comnversions, Penalties, and Timeouts
+
+# Create possession team column
 
 # convert character variables to factor
 #factor.vars = c("ODK", "RESULT", "PLAY.TYPE")
@@ -197,13 +209,96 @@ init.data[is.na(init.data$FG), "FG"] = F
 init.data$FG.score = ((init.data$FG == T) & (init.data$result == "Good"))
 init.data$safety.score = F # implement once we have data with safeties
 
-init.data[init.data$TD.score == T & init.data$odk == "O", "next.score"] = "TD For"
-init.data[init.data$TD.score == T & init.data$odk == "D", "next.score"] = "TD Against"
+init.data$sp = ifelse(init.data$TD.score + init.data$FG.score + init.data$safety.score >= 1, 
+                      T,
+                      F)
 
-init.data[init.data$FG.score == T & 
-            !is.na(init.data$play.type) & 
-            init.data$play.type == "FG", "next.score"] = "FG For"
-init.data[init.data$FG.score == T & init.data$play.type == "FG Block", "next.score"] = "FG Against"
+find.next.score.game = function(data) {
+  
+  # Which rows are the scoring plays:
+  score.plays = which(data$sp)
+  
+  find.next.score = function(play.ind, score.plays.inds, data) {
+    
+    next.score.ind = score.plays.inds[which(score.plays.inds >= play.ind)[1]]
+    
+    if(is.na(next.score.ind)) {
+      
+      cat("\nThere is no score.")
+      
+      score.type = "No Score"
+      
+    } else {
+      
+      cur.odk = init.data[play.ind, "odk"] # CMU currently on offense or defense
+      cur.result = init.data[play.ind, "result"] # Current play result
+      cur.play.type = init.data[play.ind, "play.type"] # Current play type
+      
+      #TDs:
+      if(data$TD.score[next.score.ind]) {
+        
+        score.type = ifelse((cur.odk == "O" | # offensive TD
+                           ((cur.odk == "D") & # defensive TD
+                           ((cur.result == "Interception, Def TD") | #caused by an int
+                            (cur.result == "Fumble, Def TD")))), #caused by a fumble
+                             "TD For",
+                             "TD Against")
+        
+        cat("\nThe next score is a", score.type)
+
+        #FGs
+      } else if(data$FG.score[next.score.ind]) {
+        
+        score.type = ifelse(cur.play.type == "FG", 
+                            "FG For", # FG unit on field
+                            "FG Against") # FG block unit on field
+        
+        cat("\nThe next score is a", score.type)
+        
+        #Safeties
+      } else if(data$safety.score[next.score.ind]) {
+        
+        score.type = "Safety" #Handle logic later
+        
+        #Error
+      } else {
+        
+        score.type = NA
+        
+      }
+    }
+    
+    return(data.frame(next.score = score.type))
+    
+  }
+  
+  res = lapply(1:nrow(data), find.next.score, 
+               score.plays.inds = score.plays, data = init.data) %>% 
+    bind_rows()
+  
+  print(res)
+  
+  return(res)
+}
+
+init.data$next.score = map_dfr(unique(init.data$game), 
+        function(x) {
+          init.data %>% 
+            filter(game == x) %>% 
+            find.next.score.game
+        })
+
+# for (game.ind in 1:num.games) {
+#   if (game.ind > 1) break
+#   ind.game = init.data[init.data$game == game.ind, ]
+#   
+#   
+#   for (play.ind in 1:length(ind.game$play)) {
+#     global.ind = which((init.data$game == i) & (init.data$play == play.ind))
+#     next.score.ind = score.plays[which(score.plays >= play.ind)[1]]
+#     
+#     
+# }
 
 
 # for (i in 1:num.games) { # quite inefficient code :(
