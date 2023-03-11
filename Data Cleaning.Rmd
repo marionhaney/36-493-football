@@ -18,10 +18,10 @@ init.data.full = read.csv("Initial_Play_-_By_-_Play.csv", na=c(""))
 KO.plays = c("KO", "KO Rec", "Onside Kick Rec")
 
 # Fixing the Extra Points labeled as FGs
-init.data.full[1442, "play.type"] = "Extra Pt."
-init.data.full[1556, "play.type"] = "Extra Pt."
-init.data.full[1975, "play.type"] = "Extra Pt."
-init.data.full[1994, "play.type"] = "Extra Pt."
+init.data.full[1442, "PLAY.TYPE"] = "Extra Pt."
+init.data.full[1556, "PLAY.TYPE"] = "Extra Pt."
+init.data.full[1975, "PLAY.TYPE"] = "Extra Pt."
+init.data.full[1994, "PLAY.TYPE"] = "Extra Pt."
 
 extra.pt.rows = which(init.data.full$PLAY.TYPE == "Extra Pt." |
                         init.data.full$PLAY.TYPE == "Extra Pt. Block")
@@ -41,8 +41,8 @@ init.data[945, "ODK"] = "D"
 init.data[955, "ODK"] = "D"
 init.data[980, "ODK"] = "O"
 init.data[1025, "ODK"] = "D"
-init.data[1292, "ODK"] = "O"
-init.data[1318, "ODK"] = "D"
+init.data[1291, "ODK"] = "O"
+init.data[1317, "ODK"] = "D"
 
 init.data$pos.team = ifelse(init.data$ODK == "O", "CMU", "Opp")
 
@@ -110,6 +110,7 @@ for (game.ind in 1:num.games) {
     init.data[global.ind, "drive"] = drive
     
     if (cur.pos != next.pos) drive = drive + 1
+    
   }
   
   init.data[global.ind + 1, "drive"] = drive
@@ -119,6 +120,7 @@ for (game.ind in 1:num.games) {
 
 ```{r}
 # creating drive outcome
+drive.enders.result = c("Fumble", "Interception", "Sack, Fumble")
 last.plays = which(!mapply(identical, init.data$drive, lead(init.data$drive, default=0)) & 
                      !is.na(init.data$drive))
 last.results = init.data$play.type[last.plays]
