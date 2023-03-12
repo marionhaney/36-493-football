@@ -188,8 +188,6 @@ init.data[init.data$play.type %in% FG.score, "result"] = FG.rows$result
   #No score
     #No other scores for rest of game
 
-init.data$next.score = NA
-
 init.data$TD.score = str_detect(init.data$result, "TD")
 init.data[is.na(init.data$TD.score), "TD.score"] = F 
 init.data$FG = str_detect(init.data$play.type, "FG")
@@ -203,6 +201,8 @@ init.data$sp = ifelse(init.data$TD.score + init.data$FG.score + init.data$safety
 
 find.next.score.game = function(data) {
   
+  #print(data)
+  
   # Which rows are the scoring plays:
   score.plays = which(data$sp)
   
@@ -212,36 +212,54 @@ find.next.score.game = function(data) {
     
     if(is.na(next.score.ind)) {
       
-      cat("\nThere is no score.")
-      
       score.type = "No Score"
       
     } else {
       
-      cur.odk = init.data[play.ind, "odk"] # CMU currently on offense or defense
-      cur.result = init.data[play.ind, "result"] # Current play result
-      cur.play.type = init.data[play.ind, "play.type"] # Current play type
+      cur.odk = data[play.ind, "odk"] # CMU currently on offense or defense
+      cur.result = data[play.ind, "result"] # Current play result
+      cur.play.type = data[play.ind, "play.type"] # Current play type
       
       #TDs:
-      if(data$TD.score[next.score.ind]) {
+      if (data$TD.score[next.score.ind]) {
         
-        score.type = ifelse((cur.odk == "O" | # offensive TD
-                           ((cur.odk == "D") & # defensive TD
-                           ((cur.result == "Interception, Def TD") | #caused by an int
-                            (cur.result == "Fumble, Def TD")))), #caused by a fumble
-                             "TD For",
-                             "TD Against")
+        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
+          
+          score.type = "Touchdown For"
+          
+          # Opponent TD
+        } else {
+          
+          score.type = "Touchdown Against" # WRT POSSESSION TEAM
+          
+        }
         
-        cat("\nThe next score is a", score.type)
+        # score.type = ifelse((cur.odk == "O" | # offensive TD
+        #                    ((cur.odk == "D") & # defensive TD
+        #                    ((cur.result == "Interception, Def TD") | #caused by an int
+        #                     (cur.result == "Fumble, Def TD")))), #caused by a fumble
+        #                      "TD For",
+        #                      "TD Against")
 
         #FGs
       } else if(data$FG.score[next.score.ind]) {
         
-        score.type = ifelse(cur.play.type == "FG", 
-                            "FG For", # FG unit on field
-                            "FG Against") # FG block unit on field
+        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
+          
+          score.type = "Field Goal For"
+          
+          # Opponent made FG
+        } else {
+          
+          score.type = "Field Goal Against"
+          
+        }
         
-        cat("\nThe next score is a", score.type)
+        # score.type = ifelse(cur.play.type == "FG", 
+        #                     "FG For", # FG unit on field
+        #                     "FG Against") # FG block unit on field
+        # 
+        # cat("\nThe next score is a", score.type)
         
         #Safeties
       } else if(data$safety.score[next.score.ind]) {
@@ -250,6 +268,12 @@ find.next.score.game = function(data) {
         
         #Error
       } else {
+        
+        # print(data)
+        # # print(next.score.ind)
+        # # print(data[next.score.ind, ])
+        # break
+        #print("Error case")
         
         score.type = NA
         
@@ -261,110 +285,23 @@ find.next.score.game = function(data) {
   }
   
   res = lapply(1:nrow(data), find.next.score, 
-               score.plays.inds = score.plays, data = init.data) %>% 
+               score.plays.inds = score.plays, data = data) %>% 
     bind_rows()
   
-  print(res)
+  #print(res)
   
   return(res)
 }
 
-init.data$next.score = map_dfr(unique(init.data$game), 
+next.score = map_dfr(unique(init.data$game), 
         function(x) {
           init.data %>% 
             filter(game == x) %>% 
-            find.next.score.game
+            find.next.score.game()
         })
 
-# for (game.ind in 1:num.games) {
-#   if (game.ind > 1) break
-#   ind.game = init.data[init.data$game == game.ind, ]
-#   
-#   
-#   for (play.ind in 1:length(ind.game$play)) {
-#     global.ind = which((init.data$game == i) & (init.data$play == play.ind))
-#     next.score.ind = score.plays[which(score.plays >= play.ind)[1]]
-#     
-#     
-# }
-
-
-# for (i in 1:num.games) { # quite inefficient code :(
-#   if (i > 1) break
-#   
-#   #cat("Game", i)
-#   
-#   ind.game = init.data[init.data$game == i, ]
-#   ind.game = ind.game[!is.na(ind.game$drive.outcome), ]
-#   
-#   # TD.rows = ind.game[ind.game$drive.outcome == "TD", ]
-#   # FG.rows = ind.game[ind.game$drive.outcome == "FG", ]
-#   # safety.rows = ind.game[ind.game$drive.outcome == "Safety", ]
-#   # no.score.rows = ind.game[ind.game$drive.outcome == "Time Expired", ]
-#   
-#   score.rows = ind.game[(ind.game$drive.outcome == "TD") | 
-#                         (ind.game$drive.outcome == "FG") | 
-#                         (ind.game$drive.outcome == "Safety") | 
-#                         (ind.game$drive.outcome == "Time Expired"), ]
-#   
-#   for (score.ind in 1:(dim(score.rows)[1])) {
-#     
-#     # cat("\nRow:", j)
-#     # cat("\nTheoretical Next play:", score.rows[score.ind, "play"] + 1)
-#     # cat("\nActual Next Play:", score.rows[score.ind + 1, "play"])
-#     
-#     
-#     if ((score.ind == (dim(score.rows)[1])) | 
-#         (score.rows[score.ind, "play"] + 1 != score.rows[score.ind + 1, "play"])) {
-#       # cat("\nEntered if statement.")
-#       
-#       global.ind = which((init.data$game == i) & 
-#                          (init.data$play == score.rows[score.ind, "play"])) #index in init.data
-#       prev.odk = init.data[global.ind - 1, "odk"]
-#       prev.result = init.data[global.ind - 1, "result"]
-#       cur.play.type = init.data[global.ind, "play.type"]
-#       drive.outcome = score.rows[score.ind, "drive.outcome"]
-#       
-#       cat("\nDrive outcome:", drive.outcome)
-#       
-#       if (drive.outcome == "TD") {
-#         cat("\nENTERED TD CASE")
-#         cat("\nPrevious side of posession:", prev.odk)
-#         cat("\nPrevious result:", prev.result)
-#         
-#         score.type = ifelse((prev.odk == "O" | # offensive TD
-#                                ((prev.odk == "D") & # defensive TD
-#                                   ((prev.result == "Interception, Def TD") | #caused by an int
-#                                      (prev.result == "Fumble, Def TD")))), #caused by a fumble
-#                             "TD For",
-#                             "TD Against")
-#         init.data[start.ind:global.ind, "next.score"] = score.type
-#         start.ind = global.ind + 1
-#       }
-#       else if (drive.outcome == "FG") {
-#         cat("\nENTERED FG CASE")
-#         cat("\nCurrent play type:", cur.play.type)
-#         
-#         score.type = ifelse(cur.play.type == "FG",
-#                             "FG For",
-#                             "FG Against")
-#         
-#         cat("\nScore type:", score.type)
-#         
-#         init.data[start.ind:global.ind, "next.score"] = score.type
-#         start.ind = global.ind + 1
-#       }
-#       else if (drive.outcome == "Safety") {
-#         cat("\nENTERED SAFETY CASE")
-#       }
-#       else if (drive.outcome == "Time Expired") {
-#         cat("\nENTERED NO SCORE CASE")
-#         
-#         init.data[start.ind:global.ind, "next.score"] = "No Score"
-#         start.ind = global.ind + 1
-#       }
-#     }
-#   }
-# }
+init.data$next.score = next.score
 ```
+
+
 
