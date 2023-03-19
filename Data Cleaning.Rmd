@@ -159,34 +159,7 @@ FG.rows[c(8, 23, 24, 25, 26, 28, 29), "result"] = "No Good"
   #Index 29 was a muffed FG attempt
 init.data[init.data$play.type %in% FG.score, "result"] = FG.rows$result
 
-# FG.na.rm.rows = FG.rows[!is.na(FG.rows$filled), ] # Removes incorrectly tagged FGs (really XPs)
-# FG.good.rows = FG.na.rm.rows[FG.na.rm.rows$filled == "Good", ]
-# FG.score.inds = rep(0, length(FG.good.rows$filled))
-# for (i in 1:length(FG.good.rows$filled)) {
-#   play = FG.good.rows[i, "play"]
-#   game = FG.good.rows[i, "game"]
-#   ind = which(init.data$game == game & init.data$play == play)
-#   FG.score.inds[i] = ind
-# }
-# 
-#   #Get indices for safeties
-# safety.score.inds = which(init.data$result %in% safety.score)
-# 
-# if (length(safety.score.inds) == 0) {inds.merged = sort(append(TD.score.inds, FG.score.inds))
-#  } else inds.merged = sort(append(TD.score.inds, FG.score.inds, safety.score.inds))
 
-#Outline
-  #TD Score
-    #TD For (on O, or on D + int/fumble TD)
-    #TD Against (on D, or on O +int/fumble TD)
-  #FG Score
-    #FG For (on O previous play + good, on FG unit)
-    #FG Against (on D previous play + good, on FG Block unit)
-  #Safety Score
-    #Safety Score (on D)
-    #Safety Against (on O)
-  #No score
-    #No other scores for rest of game
 
 init.data$TD.score = str_detect(init.data$result, "TD")
 init.data[is.na(init.data$TD.score), "TD.score"] = F 
@@ -223,7 +196,8 @@ find.next.score.game = function(data) {
       #TDs:
       if (data$TD.score[next.score.ind]) {
         
-        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
+        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"]) & 
+            (data[next.score.ind, "odk"] == "O")) {
           
           score.type = "Touchdown For"
           
@@ -302,6 +276,12 @@ next.score = map_dfr(unique(init.data$game),
 
 init.data$next.score = next.score
 ```
+
+```{r}
+sub.data = init.data[, c("game", "drive", "play", "pos.team", "odk", "result", 
+                         "play.type", "next.score")]
+```
+
 
 
 
