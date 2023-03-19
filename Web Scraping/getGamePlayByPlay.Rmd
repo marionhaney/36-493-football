@@ -160,7 +160,8 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
           # distance to first down
           currentDistanceToGo = gsub(".*and (.+) at.*", "\\1", situation)
           
-          if (!(is.na(str_extract(play, "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|QB|receive)")))) {
+          if (!(is.na(str_extract(play,
+                    "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|QB|receive|defers|defend)")))) {
             # has no wanted information, so skip
             next
           }

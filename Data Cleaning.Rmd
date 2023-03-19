@@ -120,24 +120,35 @@ for (game.ind in 1:num.games) {
 
 ```{r}
 # creating drive outcome
-drive.enders.result = c("Fumble", "Interception", "Sack, Fumble")
 last.plays = which(!mapply(identical, init.data$drive, lead(init.data$drive, default=0)) & 
                      !is.na(init.data$drive))
-last.results = init.data$play.type[last.plays]
+last.plays = ifelse(grepl("Punt", init.data$play.type[last.plays]), last.plays-1, last.plays)
+last.play.type = init.data$play.type[last.plays]
 down = init.data$dn[last.plays]
 result = init.data$result[last.plays]
-last.results = ifelse((last.results=="Pass" | last.results=="Run") & down==4, "Turnover on Downs", 
-               ifelse((last.results=="Pass" | last.results=="Run") & result %in% drive.enders.result,
-                      "Turnover",
-               ifelse(last.results=="Pass" | last.results=="Run", "Time Expired",
-               ifelse(last.results=="Punt Rec", "Punt", 
-               ifelse(last.results %in% c("Extra Pt.","Extra Pt. Block","2 Pt.","2 Pt. Defend"), "TD",
-               ifelse(last.results=="FG Block", "FG", last.results))))))
+last.outcomes = rep(NA, length(last.plays))
+for (i in 1:length(last.plays)) {
+  outcome = NA
+  playtype = last.play.type[i]
+  if (is.na(playtype)) {next} # NEED TO FIX
+  res = result[i]
+  if (playtype=="Pass" | playtype=="Run") {
+    if (grepl("Def TD", res)) {outcome = "TD Against"}
+    else if (grepl("TD", res)) {outcome = "TD For"}
+    else if (res %in% c("Fumble", "Interception", "Sack, Fumble")) {outcome = res}
+    else if (is.na(down[i])) {next} # NEED TO FIX
+    else if (down[i]==4) {outcome = "Turnover on Downs"}
+    else {outcome = "Time Expired"}
+  }
+  else if (grepl("FG", playtype)) {outcome = "FG"}
+  last.outcomes[i] = outcome
+}
 offset = 0
 init.data$drive.outcome = NA
+init.data$drive.outcome[last.plays] = last.outcomes
 for (i in 1:max(init.data$game)) {
   ind = which(init.data$game==i)
-  init.data$drive.outcome[ind] = last.results[init.data$drive[ind] + offset]
+  init.data$drive.outcome[ind] = last.outcomes[init.data$drive[ind] + offset]
   offset = offset + max(init.data$drive[ind], na.rm=TRUE)
 }
 
