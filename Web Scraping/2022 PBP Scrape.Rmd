@@ -1,0 +1,55 @@
+---
+title: "2022 PBP Scrape"
+author: "Marion Haney"
+date: '2023-03-19'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rvest)
+require(magrittr)
+require(stringr)
+require(purrr)
+require(dplyr)
+```
+
+Make an empty data frame
+```{r}
+df = data.frame()
+```
+
+
+Get links for each game of the PAC season
+```{r}
+seasonLinks = getSeasonLinks(2022, 10)
+teamData = getAllTeams()
+pacTeams = getConferenceTeams(teamData, "PAC")
+pac.teams.df = data.frame(pacTeams)
+playByPlayLinks = c()
+for (wk in seasonLinks) {
+  wkLinks = getWeekPlayByPlayLinks(wk)
+  playByPlayLinks = append(playByPlayLinks, wkLinks)
+}
+```
+
+
+Get team Play by Play for 2022 season weeks 1-10
+```{r}
+bigBadTable = NULL
+team.df = data.frame(getPlayByPlayTable(playByPlayLinks, bigBadTable, wantedTeams = c("Westminster (Pa.)")))
+```
+
+
+Combine with df
+```{r}
+df = rbind(df, team.df)
+# remove duplicate rows
+df.unq = df %>% distinct() 
+```
+
+Save unique df
+```{r}
+write.csv(df.unq, "PAC-2022-pbp.csv", row.names=FALSE)
+```
+

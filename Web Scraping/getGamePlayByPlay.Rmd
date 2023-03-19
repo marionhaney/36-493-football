@@ -420,7 +420,7 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
                                    "Safety?" = unlist(binarySafety), "Fumble?" = unlist(binaryFumble), 
                                    "Extra Point?" = unlist(binaryExtraPoint), "Drive Number" = unlist(numDrives), 
                                    "Team Play Number" = unlist(totalPlays))
-      
+      print(cat(homeTeam, " vs. ", awayTeam, ": date ", date))
       return(PlaybyPlayTable)
     },
     error=function(e) {

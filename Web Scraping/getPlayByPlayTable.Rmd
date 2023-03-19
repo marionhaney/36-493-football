@@ -26,14 +26,14 @@ DEFAULT: wantedTeam = "Carnegie Mellon"
 multiple weeks for ONE team
 
 ```{r}
-weekPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon")) {
+getPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon")) {
   tryCatch(
     {
-      teamScrapeDone = FALSE
-      seen = c()
+      #teamScrapeDone = FALSE
+      #seen = c()
       for (series in links) {
         # if we already did the scrape of wanted teams, no need to continue
-        if (teamScrapeDone) { break }
+        #if (teamScrapeDone) { break }
         
         # play by play of game
         gameSeries = read_html(series, as.data.frame = TRUE, stringsAsFactors = TRUE)
@@ -57,23 +57,28 @@ weekPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mel
         homeTeam = homeInfo[2]
         homeTeamScore = homeInfo[3]
         
-        # only wanted teams
-        if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
-            (homeTeam %in% seen) || (awayTeam %in% seen)) {
+        # only the wanted teams
+        if (!(homeTeam %in% wantedTeams || awayTeam %in% wantedTeams)) {
           next
         }
-        else {
-          if (homeTeam %in% wantedTeams) {
-            seen = c(seen, homeTeam)
-          }
-          if (awayTeam %in% wantedTeams) {
-            seen = c(seen, awayTeam)
-          }
-          if (is.subset(wantedTeams, seen)) {
-            teamScrapeDone = TRUE
-            seen = c()
-          }
-        }
+        
+        # # only wanted teams
+        # if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
+        #     (homeTeam %in% seen) || (awayTeam %in% seen)) {
+        #   next
+        # }
+        # else {
+        #   if (homeTeam %in% wantedTeams) {
+        #     seen = c(seen, homeTeam)
+        #   }
+        #   if (awayTeam %in% wantedTeams) {
+        #     seen = c(seen, awayTeam)
+        #   }
+        #   if (is.subset(wantedTeams, seen)) {
+        #     teamScrapeDone = TRUE
+        #     seen = c()
+        #   }
+        # }
         
         # getting teams, location, date, time
         setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
