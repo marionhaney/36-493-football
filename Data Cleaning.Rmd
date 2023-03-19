@@ -183,7 +183,11 @@ init.data$sp = ifelse(init.data$TD.score + init.data$FG.score + init.data$safety
                       T,
                       F)
 
-find.next.score.game = function(data) {
+  # Indicator for defensive score
+init.data$def.score = str_detect(init.data$result, "Def")
+init.data[is.na(init.data$def.score), "def.score"] = FALSE
+
+find.next.score.game = function(data) { #WRT POSESSION TEAM
   
   #print(data)
   
@@ -207,24 +211,31 @@ find.next.score.game = function(data) {
       #TDs:
       if (data$TD.score[next.score.ind]) {
         
-        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"]) & 
-            (data[next.score.ind, "odk"] == "O")) {
+        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
           
-          score.type = "Touchdown For"
+          if (data[next.score.ind, "def.score"]) { #Def TD, against team in pos
+            
+            score.type = "Touchdown Against"
+            
+          } else { #Offensive TD, for team in pos
+            
+            score.type = "Touchdown For"
+            
+          }
           
-          # Opponent TD
         } else {
           
-          score.type = "Touchdown Against" # WRT POSSESSION TEAM
+          if (data[next.score.ind, "def.score"]) { #Def TD, for team in pos.
+            
+            score.type = "Touchdown For"
+            
+          } else { #Offensive TD, against team in pos.
+            
+            score.type = "Touchdown Against"
+            
+          }
           
         }
-        
-        # score.type = ifelse((cur.odk == "O" | # offensive TD
-        #                    ((cur.odk == "D") & # defensive TD
-        #                    ((cur.result == "Interception, Def TD") | #caused by an int
-        #                     (cur.result == "Fumble, Def TD")))), #caused by a fumble
-        #                      "TD For",
-        #                      "TD Against")
 
         #FGs
       } else if(data$FG.score[next.score.ind]) {
@@ -240,12 +251,6 @@ find.next.score.game = function(data) {
           
         }
         
-        # score.type = ifelse(cur.play.type == "FG", 
-        #                     "FG For", # FG unit on field
-        #                     "FG Against") # FG block unit on field
-        # 
-        # cat("\nThe next score is a", score.type)
-        
         #Safeties
       } else if(data$safety.score[next.score.ind]) {
         
@@ -253,12 +258,6 @@ find.next.score.game = function(data) {
         
         #Error
       } else {
-        
-        # print(data)
-        # # print(next.score.ind)
-        # # print(data[next.score.ind, ])
-        # break
-        #print("Error case")
         
         score.type = NA
         
@@ -272,8 +271,6 @@ find.next.score.game = function(data) {
   res = lapply(1:nrow(data), find.next.score, 
                score.plays.inds = score.plays, data = data) %>% 
     bind_rows()
-  
-  #print(res)
   
   return(res)
 }
@@ -289,8 +286,13 @@ init.data$next.score = next.score
 ```
 
 ```{r}
-sub.data = init.data[, c("game", "drive", "play", "pos.team", "odk", "result", 
-                         "play.type", "next.score")]
+sub.data = init.data[, c("game", "drive", "play", "pos.team", "dn", "dist", 
+                         "yds.to.endzone", "result", "play.type", 
+                         "drive.outcome", "next.score")]
+
+sub.data %>% 
+  group_by(next.score) %>% 
+  plot(game)
 ```
 
 
