@@ -122,6 +122,7 @@ for (game.ind in 1:num.games) {
 # creating drive outcome
 last.plays = which(!mapply(identical, init.data$drive, lead(init.data$drive, default=0)) & 
                      !is.na(init.data$drive))
+last.plays = ifelse(grepl("Punt", init.data$play.type[last.plays]), last.plays-1, last.plays)
 last.play.type = init.data$play.type[last.plays]
 down = init.data$dn[last.plays]
 result = init.data$result[last.plays]
@@ -140,7 +141,6 @@ for (i in 1:length(last.plays)) {
     else {outcome = "Time Expired"}
   }
   else if (grepl("FG", playtype)) {outcome = "FG"}
-  else if (grepl("Punt", playtype)) {outcome = "Punt"}
   last.outcomes[i] = outcome
 }
 offset = 0
@@ -289,10 +289,6 @@ init.data$next.score = next.score
 sub.data = init.data[, c("game", "drive", "play", "pos.team", "dn", "dist", 
                          "yds.to.endzone", "result", "play.type", 
                          "drive.outcome", "next.score")]
-
-sub.data %>% 
-  group_by(next.score) %>% 
-  plot(game)
 ```
 
 
