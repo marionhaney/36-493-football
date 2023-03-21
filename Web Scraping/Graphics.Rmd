@@ -1,0 +1,62 @@
+---
+title: "Graphing"
+author: "Jordan Gilbert"
+date: "2023-03-20"
+output: pdf_document
+---
+
+```{r}
+# Libraries
+require(ggplot2)
+```
+
+```{r}
+#data = read.csv("Web\\Scraping/PAC-20220-pbp.csv")
+data = read.csv("C:/Users/Jordan Gilbert/OneDrive/Desktop/Python Stuff/Projects and Demos/36-493-football/Web Scraping/PAC-2022-pbp.csv")
+```
+
+```{r}
+# D3 Scoring Plays
+TeamScored = subset(data, Points.Scored. == TRUE)
+TeamScored$Distance.to.Touchdown = as.numeric(TeamScored$Distance.to.Touchdown)
+TeamScored$Down = as.factor(TeamScored$Down)
+
+TeamScoredTD = subset(TeamScored, Touchdown. == TRUE)
+TeamScoredFG = subset(TeamScored, Field.Goal. == TRUE)
+
+ggplot(TeamScored) +
+  geom_histogram(aes(Distance.to.Touchdown), binwidth = 5, color = "black", fill = "cornflowerblue") +
+  labs(title = "Histogram of Distance to Goal for Scoring Play", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+
+ggplot(TeamScoredTD) +
+  geom_histogram(aes(Distance.to.Touchdown), binwidth = 5, color = "black", fill = "cornflowerblue") +
+  labs(title = "Histogram of Distance to Goal for Touchdown Scoring Play", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+
+ggplot(TeamScoredFG) +
+  geom_histogram(aes(Distance.to.Touchdown), binwidth = 5, color = "black", fill = "cornflowerblue") +
+  labs(title = "Histogram of Distance to Goal for Field Goal Scoring Play", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+```
+```{r}
+# CMU Offensive of Plays
+CMUOffense = subset(data, Team.Possession == "Carnegie Mellon")
+CMUOffense$Distance.to.Touchdown = as.numeric(CMUOffense$Distance.to.Touchdown)
+CMUOffense$Down = as.factor(CMUOffense$Down)
+
+CMUOffenseScored = subset(CMUOffense, Points.Scored. == TRUE)
+CMUOffenseScoredTD = subset(CMUOffenseScored, Touchdown. == TRUE)
+CMUOffenseScoredFG = subset(CMUOffenseScored, Field.Goal. == TRUE)
+
+ggplot(CMUOffenseScoredTD) +
+  geom_histogram(aes(Distance.to.Touchdown), binwidth = 5, color = "black", fill = "red") +
+  labs(title = "Histogram of Distance to Goal for CMU Offense Scoring Touchdown", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+
+ggplot(CMUOffenseScoredFG) +
+  geom_histogram(aes(Distance.to.Touchdown), binwidth = 5, color = "black", fill = "red") +
+  labs(title = "Histogram of Distance to Goal for CMU Offense Scoring Field Goal", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+```
+

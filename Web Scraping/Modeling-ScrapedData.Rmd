@@ -1,0 +1,12 @@
+---
+title: "Model-ScrapedData"
+author: "Jordan Gilbert"
+date: "2023-03-21"
+output: pdf_document
+---
+
+```{r}
+# Libraries
+require(ggplot2)
+require(tidyverse)
+```
