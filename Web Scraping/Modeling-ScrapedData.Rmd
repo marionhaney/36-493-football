@@ -10,3 +10,69 @@ output: pdf_document
 require(ggplot2)
 require(tidyverse)
 ```
+
+```{r}
+# Read in data
+data = read.csv("./PAC-2022-pbp.csv")
+```
+
+```{r}
+FindNextScore = function(play_index, scoring_plays, data) {
+  # next score index
+  next_score_index = scoring_plays[which(scoring_plays >= play)[1]]
+  # if next score index has no more scores after the current play of 
+  if (is.na(next_score_index) | (data$Quarter[play_index] %in% c("1st", "2nd") & data$Quarter[next_score_index] %in% c("3rd", "4th")) | (data$Quarter[play_index] %in% c("3rd", "4th") & data$Quarter[next_score_index] %in% c("OT"))) {
+    score_type = "No Score"
+    score_drive = data$Drive.Number[play_index]
+  } 
+  else {
+    score_drive = data$Drive.Number[next_score_index]
+    
+    # TD
+    if (data$Points.Scored. & data$Touchdown.) {
+      # current possessed team scores next
+      if (data$Team.Possession[play_index] != data$Team.Possession[next_score_index + 1]) {
+        score_type = "Opp_Touchdown"
+      }
+      else {
+        score_type = "Touchdown"
+      }
+    }
+    # FG
+    else if (data$Points.Scored. & data$Field.Goal.) {
+      if (data$Team.Possession[play_index] != data$Team.Possession[next_score_index]) {
+        score_type = "Opp_Field_Goal"
+      }
+      else{
+        score_type = "Field_Goal"
+      }
+    }
+    # Extra Point
+    else if (data$Points.Scored. & data$Extra.Point.) {
+      if (data$Team.Possession[play_index] != data$Team.Possession[next_score_index + 1]) {
+        score_type = "Opp_Extra_Point"
+      }
+      else {
+        score_type = "Extra_Point"
+      }
+    }
+    # Error
+    else {
+      score_type = NA
+    }
+  }
+  return(data.frame(Next_Score_Half = score_type,
+                    Drive_Score_Half = score_drive))
+}
+```
+
+
+```{r}
+# Which rows are the scoring plays
+scoring_plays = which(data$Points.Scored.)
+```
+
+
+
+
+
