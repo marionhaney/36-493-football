@@ -37,7 +37,7 @@ for (wk in seasonLinks) {
 Get team Play by Play for 2022 season weeks 1-10
 ```{r}
 bigBadTable = NULL
-team.df = data.frame(getPlayByPlayTable(playByPlayLinks, bigBadTable, wantedTeams = c("Westminster (Pa.)")))
+team.df = data.frame(getPlayByPlayTable(playByPlayLinks, bigBadTable, wantedTeams = pacTeams))
 ```
 
 

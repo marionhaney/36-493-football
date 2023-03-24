@@ -62,23 +62,23 @@ getPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mell
           next
         }
         
-        # # only wanted teams
-        # if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
-        #     (homeTeam %in% seen) || (awayTeam %in% seen)) {
-        #   next
+        # only wanted teams
+        #if ((!(homeTeam %in% wantedTeams) && !(awayTeam %in% wantedTeams)) ||
+        #   (homeTeam %in% seen) || (awayTeam %in% seen)) {
+        # next
+        #}
+        #else {
+        # if (homeTeam %in% wantedTeams) {
+        #   seen = c(seen, homeTeam)
         # }
-        # else {
-        #   if (homeTeam %in% wantedTeams) {
-        #     seen = c(seen, homeTeam)
-        #   }
-        #   if (awayTeam %in% wantedTeams) {
-        #     seen = c(seen, awayTeam)
-        #   }
-        #   if (is.subset(wantedTeams, seen)) {
-        #     teamScrapeDone = TRUE
-        #     seen = c()
-        #   }
+        # if (awayTeam %in% wantedTeams) {
+        #   seen = c(seen, awayTeam)
         # }
+        # if (is.subset(wantedTeams, seen)) {
+        #   teamScrapeDone = TRUE
+        #   seen = c()
+        # }
+        #}
         
         # getting teams, location, date, time
         setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
@@ -271,13 +271,16 @@ Testing
 # gets a play by play table from the Carnegie Mellon vs Whitworth 2022 game week 1
 #links = c("https://www.d3football.com/seasons/2022/boxscores/20220902_wovk.xml?view=plays")
 
-# seasonLinks = getSeasonLinks(2022, 1)
-# playByPlayLinks = c()
-# for (wk in seasonLinks) {
-#   wkLinks = getWeekPlayByPlayLinks(wk)
-#   playByPlayLinks = append(playByPlayLinks, wkLinks)
-# }
-# df = getPlayByPlayTable(playByPlayLinks)
+seasonLinks = getSeasonLinks(2022)
+playByPlayLinks = c()
+for (wk in seasonLinks) {
+ wkLinks = getWeekPlayByPlayLinks(wk)
+ playByPlayLinks = append(playByPlayLinks, wkLinks)
+}
+df = getPlayByPlayTable(playByPlayLinks, bigBadTable = NULL)
+```
+```{r}
+write.csv(df, "CMU-2022-pbp.csv", row.names=FALSE)
 ```
 
 

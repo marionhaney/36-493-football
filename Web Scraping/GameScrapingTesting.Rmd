@@ -15,7 +15,7 @@ require(stringr)
 ```{r}
 # url to all D3 games of particular year in particular week
 
-url = "https://www.d3football.com/scoreboard/2022/composite?view=4"
+url = "https://www.d3football.com/scoreboard/2022/composite?view=3"
 
 # schedule of that week and year
 schedule = read_html(url, as.data.frame = TRUE, stringsAsFactors = TRUE)
@@ -134,6 +134,9 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
     is.fumble = FALSE
     is.extraPoint = FALSE
     
+    # current possession defaulted to home team
+    currentPossession = homeTeam
+    
     # Information about Game
     situation = game$Situation[i]
     if (situation == "") {
@@ -190,6 +193,18 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
       next
     }
     
+    # if not valid play, skip
+    if (nchar(play) <= 1) {
+      # has no wanted information, so skip
+      next
+    }
+    
+    # if play is time update, skip
+    if (str_detect(play, "[0-1]*[0-9]:[0-5][0-9]")) {
+      # has no wanted information, so skip
+      next
+    }
+    
     # Plays with information
     if (nchar(situation) >= 25 && startsWith %in% downs) {
       
@@ -199,7 +214,7 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
       currentDistanceToGo = gsub(".*and (.+) at.*", "\\1", situation)
       
       if (!(is.na(str_extract(play,
-                  "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|QB|receive|defers|defend|clock|Clock)")))) {
+                  "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|Toss|QB|receive|defers|defend|clock|Clock|ejected|snap|timing|pylon|pattern|wide left|broken up|conduct|DOWN|illegal)")))) {
         # has no wanted information, so skip
         next
       }
@@ -211,7 +226,9 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
       abb = str_c(lets, collapse = "")
       toGoal = as.numeric(str_c(toGoal, collapse = ""))
       # get distance from goal
-      if (is.na(currentPossession)) {print(currentPossession)}
+      if ((is.logical(currentPossession) && length(currentPossession) == 1 && 
+           !is.na(currentPossession) && currentPossession)) {
+        print(currentPossession)}
       if (currentPossession == homeTeam | str_detect(str_to_lower(currentPossession), str_to_lower(homeTeam)) | str_detect(str_to_lower(homeTeam), str_to_lower(currentPossession))) {
         if (abb == homeAbb) {
           currentDistanceToGoal = as.character(100 - toGoal)
@@ -231,9 +248,9 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
       }
       
       # get play
-      currentPlay = str_extract(play, "(rush|pass|Pass|PENALTY|fumble|sacked|punt|field goal|kick|Kneel)")
+      currentPlay = str_extract(play, "(rush|pass|Pass|PENALTY|fumble|sacked|punt|field goal|kick|Kneel|caught|Penalty)")
       if (is.na(currentPlay)) {print(play); print(game$Play[i-1])}
-      if (str_detect(play, "PENALTY")) {
+      if (str_detect(play, "PENALTY") | str_detect(play, "Penalty")) {
         yards = "Penalty"
         is.penalty = TRUE
       }
@@ -263,7 +280,7 @@ gamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, awayTea
         }
         is.run = TRUE
       }
-      else if (currentPlay == "pass" | currentPlay == "Pass") {
+      else if (currentPlay == "pass" | currentPlay == "Pass" | currentPlay == "caught") {
         if (!(is.na(str_extract(play, "incomplete")))) {
           yards = "0"
           is.incompletePass = TRUE

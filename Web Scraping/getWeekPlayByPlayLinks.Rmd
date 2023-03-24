@@ -45,10 +45,10 @@ getWeekPlayByPlayLinks = function(url) {
       allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
       
       # links to play by play
-      links = unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
+      links = unique(unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
               end = "?view=plays"; adding = paste(begin, x, sep = ""); 
               ending = paste(adding, end, sep = "");
-              return(ending)}))
+              return(ending)})))
     },
     error=function(e) {
       message('An Error Occurred')

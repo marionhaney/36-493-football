@@ -1,0 +1,74 @@
+---
+title: "Play-Efficiency"
+author: "Jordan Gilbert"
+date: "2023-03-23"
+output: pdf_document
+---
+
+```{r}
+# Libraries
+require(ggplot2)
+require(tidyverse)
+require(varhandle)
+```
+
+```{r}
+# Read in data
+data = read.csv("./CMU-2022-pbp.csv")
+#data = read.csv("./CMU-2022-pbp2.csv")
+```
+
+```{r}
+# Manipulations
+#data$Yards = as.numeric(data$Yards)
+data$Distance.to.First.Down = as.numeric(data$Distance.to.First.Down)
+```
+```{r}
+# Efficiency Model
+data["Efficient"] = ifelse(data$Down == 1 & check.numeric(data$Yards) & as.numeric(data$Yards) >= 4, 1,
+                    ifelse(data$Down == 2 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down/2, 1,
+                    ifelse(data$Down == 3 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down, 1,
+                    ifelse(data$Down == 4 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down, 1,
+                            0))))
+#1st Down: 4 Yards or more
+#2nd Down: Gaining Half of the required distance for the First Down
+#3rd Down: Converting the First Down
+#4th Down: Converting the First Down
+data$Down = as.factor(data$Down)
+```
+```{r}
+CMUOffense = subset(data, data$Team.Possession == "Carnegie Mellon")
+```
+
+
+```{r}
+# CMU Offense
+means <- aggregate(Efficient ~ Down, CMUOffense, mean)
+ggplot(CMUOffense, aes(Down, Efficient, fill = Down)) +
+  geom_boxplot() +
+  stat_summary(fun=mean, geom='point', shape=20, size = 8) +
+  geom_text(data = means, aes(label = round(Efficient, 4), y = Efficient + 0.08)) +
+  labs(title = "CMU Offense Effiency per Down")
+```
+
+```{r}
+CMUDefense = subset(data, data$Team.Possession != "Carnegie Mellon")
+```
+
+```{r}
+means <- aggregate(Efficient ~ Down, CMUDefense, mean)
+ggplot(CMUDefense, aes(Down, Efficient, fill = Down)) +
+  geom_boxplot() +
+  stat_summary(fun=mean, geom='point', shape=20, size = 8) +
+  geom_text(data = means, aes(label = round(Efficient, 4), y = Efficient + 0.08))
+```
+
+```{r}
+# ANOVA
+one_way = aov(Efficient ~ Down, CMUOffense)
+summary(one_way)
+
+# Proportion Table
+prop.table(table(CMUOffense$Down, CMUOffense$Efficient), 1)
+```
+
