@@ -8,6 +8,7 @@ output: pdf_document
 ```{r setup, include=FALSE, message = FALSE, warning = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(nnet)
 ```
 
 ```{r}
@@ -189,8 +190,6 @@ init.data[is.na(init.data$def.score), "def.score"] = FALSE
 
 find.next.score.game = function(data) { #WRT POSESSION TEAM
   
-  #print(data)
-  
   # Which rows are the scoring plays:
   score.plays = which(data$sp)
   
@@ -282,13 +281,40 @@ next.score = map_dfr(unique(init.data$game),
             find.next.score.game()
         })
 
-init.data$next.score = next.score
+init.data$next.score = next.score[, 1]
 ```
 
 ```{r}
+# EDA
 sub.data = init.data[, c("game", "drive", "play", "pos.team", "dn", "dist", 
                          "yds.to.endzone", "result", "play.type", 
                          "drive.outcome", "next.score")]
+
+# Next score distribution by down (removed NA values)
+sub.data[!is.na(sub.data$dn), ] %>% 
+  ggplot(aes(x = fct_relevel(next.score, 
+                             c("Touchdown For", "Touchdown Against", 
+                               "Field Goal For", "Field Goal Against", 
+                               "No Score")), 
+             fill = factor(dn))) +
+  geom_bar() +
+  labs(title = "Play Count for Next Score Events", x = "Scoring Events", 
+       y = "Play Count", fill = "Down") +
+  theme_bw()
+  
+drive.data = sub.data %>% 
+  group_by(drive) %>% 
+  slice(1) %>% 
+  ungroup()
+
+drive.data %>% 
+  ggplot(aes(x = fct_relevel(drive.outcome, 
+                             c("TD For", "FG", "Punt", "Interception", 
+                               "Turnover on Downs", "Time Expired")))) +
+  geom_bar() +
+  labs(title = "Drive Counts for Drive Outcomes", x = "Drive Outcome", 
+       y = "Drive Count") +
+  theme_bw()
 ```
 
 
