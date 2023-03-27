@@ -14,7 +14,7 @@ require(dplyr)
 
 ```{r}
 # Read in data
-data = read.csv("./PAC-2022-pbp.csv")
+data = read.csv("PAC-2022-pbp2.csv")
 ```
 
 Helper function that takes in the current play index, a vector of the scoring play indices, and play-by-play data and returns the score type and drive number for the next score
@@ -114,5 +114,16 @@ GetDriveOutcome = function() {
   }
 }
 ```
+
+
+Quarters to Half
+```{r}
+## take away that weird NA row in the beginning
+# data <- slice(data, -1)
+data$Half <- with(data, ifelse(Quarter %in% c("1st", "2nd"), "1st", "2nd"))
+```
+
+
+
 
 
