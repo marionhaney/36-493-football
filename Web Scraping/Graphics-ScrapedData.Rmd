@@ -12,7 +12,7 @@ require(ggplot2)
 
 ```{r}
 #data = read.csv("Web\\Scraping/PAC-20220-pbp.csv")
-data = read.csv("C:/Users/Jordan Gilbert/OneDrive/Desktop/Python Stuff/Projects and Demos/36-493-football/Web Scraping/PAC-2022-pbp.csv")
+data = read.csv("./PAC-2022-pbp.csv")
 ```
 
 ```{r}
