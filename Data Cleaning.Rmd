@@ -203,10 +203,6 @@ find.next.score.game = function(data) { #WRT POSESSION TEAM
       
     } else {
       
-      cur.odk = data[play.ind, "odk"] # CMU currently on offense or defense
-      cur.result = data[play.ind, "result"] # Current play result
-      cur.play.type = data[play.ind, "play.type"] # Current play type
-      
       #TDs:
       if (data$TD.score[next.score.ind]) {
         
@@ -285,6 +281,10 @@ init.data$next.score = next.score[, 1]
 ```
 
 ```{r}
+# CMU efficiency metric
+```
+
+```{r}
 # EDA
 sub.data = init.data[, c("game", "drive", "play", "pos.team", "dn", "dist", 
                          "yds.to.endzone", "result", "play.type", 
@@ -301,6 +301,10 @@ sub.data[!is.na(sub.data$dn), ] %>%
   labs(title = "Play Count for Next Score Events", x = "Scoring Events", 
        y = "Play Count", fill = "Down") +
   theme_bw()
+
+sub.data %>%
+  ggplot(aes(x = yds.to.endzone, fill = next.score)) +
+  geom_histogram(binwidth = 5)
   
 drive.data = sub.data %>% 
   group_by(drive) %>% 
@@ -315,7 +319,30 @@ drive.data %>%
   labs(title = "Drive Counts for Drive Outcomes", x = "Drive Outcome", 
        y = "Drive Count") +
   theme_bw()
+
+# Starting yard line of each scoring play
+init.data[init.data$sp, ] %>%
+  ggplot(aes(x = yds.to.endzone)) +
+  geom_histogram(binwidth = 5)
+
+# Starting yard line of the first play in the drive for each scoring play
+#TBD
+
+
+#get last play of each drive
+init.data %>% 
+  group_by(game, drive) %>% 
+  slice_tail %>% 
+  ungroup %>% 
+  which
 ```
+
+```{r}
+#Modeling
+
+#EPA.model = nnet()
+```
+
 
 
 
