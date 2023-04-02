@@ -95,6 +95,10 @@ names(init.data)[5] = "yds.to.endzone"
 
 num.games = max(init.data$game)
 
+  # Indicator for defensive score
+init.data$def.score = str_detect(init.data$result, "Def")
+init.data[is.na(init.data$def.score), "def.score"] = FALSE
+
 for (game.ind in 1:num.games) {
   
   ind.game = init.data[init.data$game == game.ind, ]
@@ -110,7 +114,9 @@ for (game.ind in 1:num.games) {
     
     init.data[global.ind, "drive"] = drive
     
-    if (cur.pos != next.pos) drive = drive + 1
+    if ((cur.pos != next.pos) | (ind.game[j, "def.score"])) {
+      drive = drive + 1
+    }
     
   }
   
@@ -184,10 +190,6 @@ init.data$sp = ifelse(init.data$TD.score + init.data$FG.score + init.data$safety
                       T,
                       F)
 
-  # Indicator for defensive score
-init.data$def.score = str_detect(init.data$result, "Def")
-init.data[is.na(init.data$def.score), "def.score"] = FALSE
-
 find.next.score.game = function(data) { #WRT POSESSION TEAM
   
   # Which rows are the scoring plays:
@@ -210,11 +212,11 @@ find.next.score.game = function(data) { #WRT POSESSION TEAM
           
           if (data[next.score.ind, "def.score"]) { #Def TD, against team in pos
             
-            score.type = "Touchdown Against"
+            score.type = "TD Against"
             
           } else { #Offensive TD, for team in pos
             
-            score.type = "Touchdown For"
+            score.type = "TD For"
             
           }
           
@@ -222,11 +224,11 @@ find.next.score.game = function(data) { #WRT POSESSION TEAM
           
           if (data[next.score.ind, "def.score"]) { #Def TD, for team in pos.
             
-            score.type = "Touchdown For"
+            score.type = "TD For"
             
           } else { #Offensive TD, against team in pos.
             
-            score.type = "Touchdown Against"
+            score.type = "TD Against"
             
           }
           
@@ -237,12 +239,12 @@ find.next.score.game = function(data) { #WRT POSESSION TEAM
         
         if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
           
-          score.type = "Field Goal For"
+          score.type = "FG For"
           
           # Opponent made FG
         } else {
           
-          score.type = "Field Goal Against"
+          score.type = "FG Against"
           
         }
         
@@ -333,13 +335,11 @@ init.data[init.data$sp, ] %>%
 init.data %>% 
   group_by(game, drive) %>% 
   slice_tail %>% 
-  ungroup %>% 
-  which
+  ungroup
 ```
 
 ```{r}
 #Modeling
-
 #EPA.model = nnet()
 ```
 
