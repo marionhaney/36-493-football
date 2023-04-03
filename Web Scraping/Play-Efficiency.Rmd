@@ -64,6 +64,12 @@ ggplot(CMUDefense, aes(Down, Efficient, fill = Down)) +
 ```
 
 ```{r}
+ggplot(CMUDefense, aes(Down, Efficient, fill = Down)) +
+  geom_bar()
+```
+
+
+```{r}
 # ANOVA
 one_way = aov(Efficient ~ Down, CMUOffense)
 summary(one_way)

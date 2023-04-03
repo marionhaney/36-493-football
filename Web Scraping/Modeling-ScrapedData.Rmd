@@ -10,6 +10,7 @@ output: pdf_document
 require(ggplot2)
 require(tidyverse)
 require(dplyr)
+require(nnet)
 ```
 
 ```{r}
@@ -141,8 +142,24 @@ GetDriveOutcome = function(play_index, last_play_of_drive, data) {
 
 ```{r}
 # switch of possession, hence end of drive
-last_play_of_drive = which(data$Team.Possession != lag(data$Team.Possession))
-last_play_of_drive = last_play_of_drive - 1
+first_play_of_drive = which(data$Team.Possession != lag(data$Team.Possession))
+last_play_of_drive = first_play_of_drive - 1
+```
+
+```{r}
+# add information of where drive started
+# initiate new column
+data["Drive.Starting.Distance.to.Touchdown"] = data$Distance.to.Touchdown
+# first drive
+data$Drive.Starting.Distance.to.Touchdown[1:(head(first_play_of_drive, 1) - 1)] = data$Distance.to.Touchdown[1]
+for (i in 1:(length(first_play_of_drive) - 1)) {
+  (data$Drive.Starting.Distance.to.Touchdown[first_play_of_drive[i]:(first_play_of_drive[i + 1] - 1)] = data$Distance.to.Touchdown[first_play_of_drive[i]])
+}
+```
+
+```{r}
+# add information of net yards
+data["Net.Yards"] = c(rollapply(data$Distance.to.Touchdown, width = 2, function(x) {x[1] - x[2]}, fill = 0))
 ```
 
 
@@ -160,7 +177,98 @@ Quarters to Half
 data$Half <- with(data, ifelse(Quarter %in% c("1st", "2nd"), "1st", "2nd"))
 ```
 
+Modeling
+```{r}
+
+```
+
+Graphics
+```{r}
+# Make categorical variables
+data$Next_Score_Half = as.factor(data$Next_Score_Half)
+data$Drive_Outcome = as.factor(data$Drive_Outcome)
+data$Quarter = as.factor(data$Quarter)
+data$Down = as.factor(data$Down)
+```
+
+```{r}
+ggplot(data, aes(x = Drive_Outcome, fill = Down)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Drive Outcome by Down", x = " Drive Outcome") +
+  geom_text(stat = "count", aes(label = ..count..), size = 3, position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer()
+```
+
+```{r}
+ggplot(data, aes(x = Next_Score_Half, fill = Down)) +
+  geom_bar() +
+  labs(title = "Stacked Bar Plot of Next Score Event by Down", x = " Next Score Event") +
+  geom_text(stat = "count", aes(label = ..count..), size = 3, position = position_stack(vjust = 0.5)) +
+  theme(axis.text.x = element_text(angle = 90)) 
+```
 
 
+```{r}
+# group_by(data, id)
+# 
+ggplot(data) +
+  geom_boxplot(aes(Drive.Starting.Distance.to.Touchdown, Drive_Outcome, fill = Drive_Outcome)) +
+  labs(title = "Boxplot of Outcome based on Starting Distance to Touchdown of Drive", y = "Drive Outcome",
+       x = "Distance to Touchdown at Start of Drive")
+```
 
+
+```{r}
+ggplot(data) +
+  geom_point(aes(x = Distance.to.Touchdown, y = Drive_Outcome, color = Drive_Outcome))
+```
+
+```{r}
+# D3 Scoring Plays
+TeamScored = subset(data, Points.Scored. == TRUE)
+TeamScored$Down = as.factor(TeamScored$Down)
+
+TeamScoredTD = subset(TeamScored, Touchdown. == TRUE)
+TeamScoredFG = subset(TeamScored, Field.Goal. == TRUE)
+
+ggplot(TeamScored) +
+  geom_histogram(aes(Drive.Starting.Distance.to.Touchdown), binwidth = 5, color = "black", fill = "cornflowerblue") +
+  labs(title = "Histogram of Drive Starting Distance to Endzone for Scoring Play", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+
+ggplot(TeamScoredTD) +
+  geom_histogram(aes(Drive.Starting.Distance.to.Touchdown), binwidth = 5, color = "black", fill = "cornflowerblue") +
+  labs(title = "Histogram of Drive Starting Distance to Endzone for Touchdown Scoring Play", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+
+ggplot(TeamScoredFG) +
+  geom_histogram(aes(Drive.Starting.Distance.to.Touchdown), binwidth = 5, color = "black", fill = "cornflowerblue") +
+  labs(title = "Histogram of Drive Starting Distance to Endzone for Field Goal Scoring Play", x = "Distance to Goal",
+       subtitle = "Binwidth = 5 yards")
+```
+
+```{r}
+ggplot(TeamScoredTD) +
+  geom_point(aes(Drive.Starting.Distance.to.Touchdown, Distance.to.Touchdown, color = Drive_Outcome))
+```
+
+```{r}
+ggplot(data) +
+  geom_boxplot(aes(Net.Yards, fill = Down))
+```
+
+```{r}
+ggplot(data) +
+  geom_density(aes(Drive.Starting.Distance.to.Touchdown, color = Next_Score_Half))
+```
+
+```{r}
+ggplot(data) +
+  geom_density(aes(Distance.to.Touchdown, color = Next_Score_Half))
+```
+
+
+```{r}
+data %>% group_by(Team.Possession, Down, Net.Yards)
+```
 
