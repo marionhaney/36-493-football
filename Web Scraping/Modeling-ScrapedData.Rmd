@@ -1,8 +1,10 @@
 ---
 title: "Model-ScrapedData"
-author: "Jordan Gilbert"
-date: "2023-03-21"
-output: pdf_document
+author: "Jordan Gilbert, Marion Haney"
+date: '2023-03-21'
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r}
@@ -14,7 +16,7 @@ require(dplyr)
 
 ```{r}
 # Read in data
-data = read.csv("PAC-2022-pbp.csv")
+data = read.csv("PAC-2022-pbp2.csv")
 ```
 
 Helper function that takes in the current play index, a vector of the scoring play indices, and play-by-play data and returns the score type and drive number for the next score
@@ -98,69 +100,125 @@ data = cbind(data, next_score)
 
 Drive Outcome
 ```{r}
-GetDriveOutcome = function(play_index, last_play_of_drive, data) {
-  # next score index
-  curr_last_play_index = last_play_of_drive[which(last_play_of_drive >= play_index)[1]]
-  
+GetDriveOutcome = function() {
+  last_play_of_drive = which(data$Team.Possession != lag(data$Team.Possession))
+  last_play_of_drive = last_play_of_drive - 1
   #last_play_of_drive_type = data$Outcome
-  
-  if (is.na(curr_last_play_index)) {
-    drive_outcome = "Time Expired"
-  }
-  else {
-    
-    # TD scored
-    if (data$Touchdown.[curr_last_play_index] | data$Extra.Point.[curr_last_play_index]) {
-      drive_outcome = "Touchdown"
-    }
-    # FG scored
-    else if (data$Field.Goal.[curr_last_play_index]) {
-      drive_outcome = "Field Goal"
-    }
-    # Punt
-    else if (data$Punt.[curr_last_play_index]) {
-      drive_outcome = "Punt"
-    }
-    # Turnover
-    else if (data$Interception.[curr_last_play_index] | data$Fumble.[curr_last_play_index]) {
-      drive_outcome = "Turnover"
-    }
-    # Turnover on Downs
-    else if (data$Down[curr_last_play_index] == 4) {
-      drive_outcome = "Turnover on Downs"
-    }
-    # Time expired
-    else {
-      drive_outcome = "Time Expired"
+  index = 1
+  curr_last_play_index = last_play_of_drive[index]
+  drive_outcome = c()
+  for (curr_play in 1:length(last_play_of_drive)) {
+    if (curr_play_index <= curr_last_play_index) {
+      if (data$Touchdown.[curr_last_play_index]) {
+        drive_outcome = append(drive_outcome, "")
+      }
     }
   }
-  return(data.frame(Drive_Outcome = drive_outcome))
 }
-```
-
-
-```{r}
-# switch of possession, hence end of drive
-last_play_of_drive = which(data$Team.Possession != lag(data$Team.Possession))
-last_play_of_drive = last_play_of_drive - 1
-```
-
-
-```{r}
-drive_outcome = lapply(c(1:nrow(data)), GetDriveOutcome, last_play_of_drive = last_play_of_drive, data = data) %>%
-  bind_rows()
-data = cbind(data, drive_outcome)
 ```
 
 
 Quarters to Half
 ```{r}
 ## take away that weird NA row in the beginning
-# data <- slice(data, -1)
+data <- slice(data, -1)
 data$Half <- with(data, ifelse(Quarter %in% c("1st", "2nd"), "1st", "2nd"))
 ```
 
 
+Save the cleaned data
+```{r}
+write.csv(data, "PAC-2022-Cleaned-pbp.csv", row.names=FALSE)
+```
 
 
+
+MODELING
+
+Load in data & libraries
+```{r}
+require(nnet)
+require(caret)
+df <- read.csv("PAC-2022-Cleaned-pbp.csv")
+```
+
+
+Multinomial logistic regression for next score using down and distance (yds) to touchdown
+```{r}
+# Y: df$Next_Score_Half
+# X: df$Down, log(df$Distance.to.Touchdown)
+mult.log.model <- multinom(factor(Next_Score_Half) ~ factor(Down)
+                           + log(Distance.to.Touchdown), data = df, maxit = 300)
+summary(mult.log.model)
+### how do i change the reference category to "No Score"?
+```
+
+Model Visualizations:
+From: 
+https://www.stat.cmu.edu/cmsac/sure/2022/materials/lectures/slides/21-Multinomial-multilevel.html#20 
+```{r}
+init_loso_cv_preds <- map_dfr(unique(df), 
+          function(x) {
+            # Separate test and training data:
+            ## 75% of the sample size
+            smp_size <- floor(0.75 * nrow(df))
+            set.seed(1)
+            train_ind <- sample(seq_len(nrow(df)), size = smp_size)
+            train_data <- df[train_ind, ]
+            test_data <- df[-train_ind, ]
+            
+            # Fit multinomial logistic regression model:
+            ep_model <- multinom(factor(Next_Score_Half) ~ factor(Down)
+                           + log(Distance.to.Touchdown), data = train_data, maxit = 300)
+            
+            # Return dataset of class probabilities:
+            predict(ep_model, newdata = test_data, type = "probs") %>%
+              as_tibble() %>%
+              mutate(Next_Score_Half = test_data$Next_Score_Half)
+            })
+```
+
+Calibration results for each scoring event
+```{r}
+ep_cv_loso_calibration_results <- init_loso_cv_preds %>%
+  pivot_longer(Extra_Point:Opp_Field_Goal,
+               names_to = "next_score_type",
+               values_to = "pred_prob") %>%
+  mutate(bin_pred_prob = round(pred_prob / 0.05) * .05) %>%
+  group_by(next_score_type, bin_pred_prob) %>%
+  summarize(n_plays = n(), 
+            n_scoring_event = length(which(Next_Score_Half == next_score_type)),
+            bin_actual_prob = n_scoring_event / n_plays,
+            bin_se = sqrt((bin_actual_prob * (1 - bin_actual_prob)) / n_plays)) %>%
+  ungroup() %>%
+  mutate(bin_upper = pmin(bin_actual_prob + 2 * bin_se, 1),
+         bin_lower = pmax(bin_actual_prob - 2 * bin_se, 0))
+```
+
+```{r}
+ep_cv_loso_calibration_results <- na.omit(ep_cv_loso_calibration_results)
+ep_cv_loso_calibration_results %>%
+  mutate(next_score_type = fct_relevel(next_score_type, "Extra_Point", "Field_Goal", 
+                                       "Opp_Extra_Point", "No Score", "Opp_Field_Goal"),
+  next_score_type = fct_recode(next_score_type,
+                               "Field Goal (3)" = "Field_Goal", 
+                               "Touchdown (7)" = "Extra_Point",
+                               "No Score (0)" = "No Score",
+                               "-Field Goal (-3)" = "Opp_Field_Goal",
+                               "-Touchdown (-7)" = "Opp_Extra_Point")) %>%
+  ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
+  geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed") +
+  geom_smooth(se = FALSE) + 
+  geom_point(aes(size = n_plays)) +
+  geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + #coord_equal() +   
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(size = "Number of plays", x = "Estimated next score probability", 
+       y = "Observed next score probability") + 
+  theme_bw() + 
+  theme(strip.background = element_blank(), 
+        axis.text.x = element_text(angle = 90), 
+        legend.position = c(1, .05), legend.justification = c(1, 0)) +
+  facet_wrap(~ next_score_type, ncol = 4)
+```
 
