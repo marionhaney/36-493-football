@@ -347,7 +347,9 @@ init.data[init.data$sp, ] %>%
   theme_bw()
 
 # Starting yard line of the first play in the drive for each scoring play
-#TBD
+drive.data %>% filter(drive.outcome=="FG" | drive.outcome=="TD For" | drive.outcome=="TD Against") %>%
+  ggplot(aes(x=yds.to.endzone)) + geom_histogram(bins=25) + 
+  labs(title="Starting location of drives that end in a scoring event", x="Yards to endzone")
 
 ## EDA OF PREDICTOR VARIABLES
 
@@ -390,6 +392,20 @@ sub.data %>%
   labs("Density of Yards to Go, Colored by Down, Faceted by Next Score",
        x = "Yards to Go", y = "Density", fill = "Down") +
   theme_bw()
+
+# Distribution of yard line colored by down
+sub.data %>% ggplot(aes(x=yds.to.endzone)) + 
+  geom_histogram(aes(fill=factor(dn)), alpha=0.5, position="identity") +
+  labs(title="Distribution of yard line by down", x="Yards to endzone", fill="down")
+
+# Distribution of yard line colored by drive outcome
+sub.data %>% ggplot(aes(x=yds.to.endzone, fill=factor(drive.outcome))) + geom_histogram() +
+  labs(title="Distribution of yard line by drive outcome", x="Yard line", fill="Drive outcome")
+
+# Distribution of yards gained/lost colored by down
+init.data %>% ggplot(aes(x=gn.ls)) + 
+  geom_density(aes(fill=factor(dn)), alpha=0.3, position="identity") + 
+  labs(title="Density of gain/loss by down", x="Yards gained/lost", fill="Down")
 ```
 
 ```{r}
