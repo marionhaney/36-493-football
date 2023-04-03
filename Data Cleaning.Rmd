@@ -304,8 +304,8 @@ sub.data = init.data[, c("game", "drive", "play", "pos.team", "dn", "dist",
 # Next score distribution by down (removed NA values)
 sub.data[!is.na(sub.data$dn), ] %>% 
   ggplot(aes(x = fct_relevel(next.score, 
-                             c("Touchdown For", "Touchdown Against", 
-                               "Field Goal For", "Field Goal Against", 
+                             c("TD For", "TD Against", 
+                               "FG For", "FG Against", 
                                "No Score")), 
              fill = factor(dn))) +
   geom_bar() +
@@ -316,10 +316,9 @@ sub.data[!is.na(sub.data$dn), ] %>%
 # Distribution of yard line filled with next score event at every play
 sub.data %>%
   ggplot(aes(x = yds.to.endzone, fill = next.score)) +
-  geom_histogram(binwidth = 5) +
-  labs(title = "Play Count for Yard Line Filled with Next Score Event", 
-       x = "Yards to Endzone", y = "Play Count", fill = "Score Event", 
-       subtitle = "Binwidth of 5 Yards") +
+  geom_density() +
+  labs(title = "Density for Yard Line Filtered by Next Score Event", 
+       x = "Yards to Endzone", y = "Density", fill = "Score Event") +
   theme_bw()
   
 
@@ -394,7 +393,8 @@ sub.data %>%
 
 ```{r}
 #Modeling
-EPA.model = nnet(next.score ~ dn + dist + yds.to.endzone, data = sub.data)
+EPA.model = multinom(next.score ~ factor(dn) + dist + log(yds.to.endzone) + factor(dn):dist, data = sub.data)
+summary(EPA.model)
 ```
 
 
