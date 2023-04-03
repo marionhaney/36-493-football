@@ -147,9 +147,9 @@ for (i in 1:length(last.plays)) {
   playtype = last.play.type[i]
   if (is.na(playtype)) {next} # NEED TO FIX
   res = result[i]
-  if (playtype=="Pass" | playtype=="Run") {
-    if (grepl("Def TD", res)) {outcome = "TD Against"}
-    else if (grepl("TD", res)) {outcome = "TD For"}
+  if (grepl("Def TD", res)) {outcome = "TD Against"}
+  else if (playtype=="Pass" | playtype=="Run") {
+    if (grepl("TD", res)) {outcome = "TD For"}
     else if (res %in% c("Fumble", "Interception", "Sack, Fumble")) {outcome = res}
     else if (is.na(down[i])) {next} # NEED TO FIX
     else if (down[i]==4) {outcome = "Turnover on Downs"}
