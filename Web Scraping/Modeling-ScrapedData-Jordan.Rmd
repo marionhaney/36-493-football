@@ -15,7 +15,8 @@ require(nnet)
 
 ```{r}
 # Read in data
-data = read.csv("PAC-2022-pbp2.csv")
+data = read.csv("PAC-2022-pbp.csv")
+data <- filter(data, rowSums(is.na(data)) != ncol(data))
 ```
 
 Helper function that takes in the current play index, a vector of the scoring play indices, and play-by-play data and returns the score type and drive number for the next score
@@ -99,29 +100,57 @@ data = cbind(data, next_score)
 
 Drive Outcome
 ```{r}
-GetDriveOutcome = function() {
-  last_play_of_drive = which(data$Team.Possession != lag(data$Team.Possession))
-  last_play_of_drive = last_play_of_drive - 1
+GetDriveOutcome = function(play_index, last_play_of_drive, data) {
+  # next score index
+  curr_last_play_index = last_play_of_drive[which(last_play_of_drive >= play_index)[1]]
+  
   #last_play_of_drive_type = data$Outcome
-  index = 1
-  curr_last_play_index = last_play_of_drive[index]
-  drive_outcome = c()
-  for (curr_play in 1:length(last_play_of_drive)) {
-    if (curr_play_index <= curr_last_play_index) {
-      if (data$Touchdown.[curr_last_play_index]) {
-        drive_outcome = append(drive_outcome, "")
-      }
+  
+  if (is.na(curr_last_play_index)) {
+    drive_outcome = "Time Expired"
+  }
+  else {
+    
+    # TD scored
+    if (data$Touchdown.[curr_last_play_index] | data$Extra.Point.[curr_last_play_index]) {
+      drive_outcome = "Touchdown"
+    }
+    # FG scored
+    else if (data$Field.Goal.[curr_last_play_index]) {
+      drive_outcome = "Field Goal"
+    }
+    # Punt
+    else if (data$Punt.[curr_last_play_index]) {
+      drive_outcome = "Punt"
+    }
+    # Turnover
+    else if (data$Interception.[curr_last_play_index] | data$Fumble.[curr_last_play_index]) {
+      drive_outcome = "Turnover"
+    }
+    # Turnover on Downs
+    else if (data$Down[curr_last_play_index] == 4) {
+      drive_outcome = "Turnover on Downs"
+    }
+    # Time expired
+    else {
+      drive_outcome = "Time Expired"
     }
   }
+  return(data.frame(Drive_Outcome = drive_outcome))
 }
 ```
 
 
-<<<<<<< HEAD
 ```{r}
 # switch of possession, hence end of drive
 first_play_of_drive = which(data$Team.Possession != lag(data$Team.Possession))
 last_play_of_drive = first_play_of_drive - 1
+```
+
+```{r}
+drive_outcome = lapply(c(1:nrow(data)), GetDriveOutcome, last_play_of_drive = last_play_of_drive, data = data) %>%
+  bind_rows()
+data = cbind(data, drive_outcome)
 ```
 
 ```{r}
@@ -137,21 +166,19 @@ for (i in 1:(length(first_play_of_drive) - 1)) {
 
 ```{r}
 # add information of net yards
-data["Net.Yards"] = c(rollapply(data$Distance.to.Touchdown, width = 2, function(x) {x[1] - x[2]}, fill = 0))
+#data["Net.Yards"] = c(rollapply(data$Distance.to.Touchdown, width = 2, function(x) {x[1] - x[2]}, fill = 0))
+net.yards = (data %>% group_by(Team.Possession, Drive.Number) %>% mutate(diff = lag(Distance.to.Touchdown,
+              default = first(Distance.to.Touchdown)) - Distance.to.Touchdown))$diff
+net.yards = tail(net.yards, -1)
+net.yards = c(net.yards, 0)
+data["Net.Yards"] = net.yards
+# Note: end of drive (punt, turnover touchdown, set to zero net yards)
+# Change for touchdown
+data$Net.Yards[data$Touchdown.] = data$Distance.to.Touchdown[data$Touchdown.]
 ```
-
-
-```{r}
-drive_outcome = lapply(c(1:nrow(data)), GetDriveOutcome, last_play_of_drive = last_play_of_drive, data = data) %>%
-  bind_rows()
-data = cbind(data, drive_outcome)
-```
-
 
 Quarters to Half
 ```{r}
-## take away that weird NA row in the beginning
-data <- slice(data, -1)
 data$Half <- with(data, ifelse(Quarter %in% c("1st", "2nd"), "1st", "2nd"))
 ```
 
