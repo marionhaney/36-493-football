@@ -63,6 +63,7 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
       binarySafety = list()
       binaryFumble = list()
       binaryExtraPoint = list()
+      binaryTurnover = list()
       currentQuarter = NULL
       lastPossession = "NULL"
       currentPossession = NULL
@@ -72,6 +73,12 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
       numberOfPlaysAway = 0
       numberOfPlaysHome = 0
       numPlays = 0
+      playDescription = list()
+      
+      # current possession defaulted to home team
+      currentPossession = homeTeam
+      
+      validPlays = "(rush|pass|Pass|PENALTY|fumble|sacked|punt|field goal|kick|Kneel|caught|Penalty|blocked)"
       
       for (i in 1:nrow(game)) {
         # Binary Outcomes
@@ -88,6 +95,7 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
         is.safety = FALSE
         is.fumble = FALSE
         is.extraPoint = FALSE
+        is.turnover = FALSE
         
         # Information about Game
         situation = game$Situation[i]
@@ -151,6 +159,12 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
           next
         }
         
+        # if play is time update, skip
+        if (str_detect(play, "[0-1]*[0-9]:[0-5][0-9]") & is.na(str_extract(play, validPlays))) {
+          # has no wanted information, so skip
+          next
+        }
+        
         # Plays with information
         if (nchar(situation) >= 25 && startsWith %in% downs) {
           
@@ -159,8 +173,14 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
           # distance to first down
           currentDistanceToGo = gsub(".*and (.+) at.*", "\\1", situation)
           
-          if (!(is.na(str_extract(play,
-                    "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|Toss|QB|receive|defers|defend|clock|Clock|ejected|snap|timing|pylon|pattern|wide left|broken up|conduct|DOWN|flea-flicker|illegal|#)")))) {
+#          if (!(is.na(str_extract(play,
+#                    "(kickoff|hurry|ball|drive|quarter|half|Timeout|game|toss|Toss|QB|receive|defers|defend|clock|Clock|ejected|snap|timing|pylon|pattern|wide left|broken up|conduct|DOWN|flea-flicker|illegal|#)")))) {
+            # has no wanted information, so skip
+#            next
+#          }
+          
+          if ((is.na(str_extract(play, validPlays)) | (!is.na(str_extract(play, "(kickoff|ball|drive|quarter|half|Timeout|toss|Toss|ejected|pylon|illegal|conduct|receive)"))))) 
+            {
             # has no wanted information, so skip
             next
           }
@@ -192,9 +212,9 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
           }
           
           # get play
-          currentPlay = str_extract(play, "(rush|pass|Pass|PENALTY|fumble|sacked|punt|field goal|kick|Kneel)")
+          currentPlay = str_extract(play, "(rush|pass|Pass|PENALTY|fumble|sacked|punt|field goal|kick|Kneel|caught|Penalty|blocked)")
           if (is.na(currentPlay)) {print(play); print(game$Play[i-1])}
-          if (str_detect(play, "PENALTY")) {
+          if (str_detect(play, "PENALTY") | str_detect(play, "Penalty")) {
             yards = "Penalty"
             is.penalty = TRUE
           }
@@ -202,20 +222,22 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
             yards = "Extra Point Attempt"
           }
           else if (currentPlay == "rush") {
-            if (!(is.na(str_extract(play, "no gain")))) {
+            if (!(is.na(str_extract(play, "(no gain|failed|good|Successful)")))) {
               yards = "0"
             }
             else {
               yards = sub(".*for (.+) yard(s?)(.*?) .*", "\\1", play)
-              yards = str_extract(yards, "[:digit:]")
               if (!(is.na(str_extract(play, "loss")))) {
+                if (!(is.na(str_extract(yards, "loss")))) {
+                  yards = str_extract(yards, "[:digit:]+")
+                }
                 yards = as.character(as.numeric(yards) * -1)
               }
             }
             is.run = TRUE
           }
-          else if (currentPlay == "pass" | currentPlay == "Pass") {
-            if (!(is.na(str_extract(play, "incomplete")))) {
+          else if (currentPlay == "pass" | currentPlay == "Pass" | currentPlay == "caught") {
+            if (!(is.na(str_extract(play, "(incomplete|no gain|failed|good|Successful)")))) {
               yards = "0"
               is.incompletePass = TRUE
             }
@@ -223,35 +245,36 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
               yards = "Intercepted"
               is.incompletePass = TRUE
               is.intercepted = TRUE
+              is.turnover = TRUE
             }
             else {
               yards = sub(".*for (.+) yard(s?)(.*?) .*", "\\1", play)
-              yards = str_extract(yards, "[:digit:]")
               if (!(is.na(str_extract(play, "loss")))) {
+                if (!(is.na(str_extract(yards, "loss")))) {
+                  yards = str_extract(yards, "[:digit:]+")
+                }
                 yards = as.character(as.numeric(yards) * -1)
               }
               is.completedPass = TRUE
             }
+            
           }
+          
           else if (currentPlay == "Kneel") {
             if (!(is.na(str_extract(play, "no gain")))) {
              yards = "0"
             }
             else {
               yards = sub(".*for (.+) yard(s?)(.*?) .*", "\\1", play)
-              yards = str_extract(yards, "[:digit:]")
               if (!(is.na(str_extract(play, "loss")))) {
+                if (!(is.na(str_extract(yards, "loss")))) {
+                  yards = str_extract(yards, "[:digit:]+")
+                }
                 yards = as.character(as.numeric(yards) * -1)
               }
             }
           }
-          else if (currentPlay == "fumble") {
-            yards = "Fumble"
-            is.fumble = TRUE
-            recovery = sub(".* recovered by (.+) at .*", "\\1", play)
-            recoveredBy = sub("(.+) .+", "\\1", recovery)
-            print(play)
-          }
+          
           else if (currentPlay == "punt") {
             yards = "Punt"
             is.punt = TRUE
@@ -261,21 +284,26 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
             is.fieldGoal = TRUE
           }
           else if (currentPlay == "sacked") {
-            yards = sub(".*for (.+) yard(s?)(.*?) .*", "\\1", play)
-            yards = str_extract(yards, "[:digit:]")
-            if (!(is.na(str_extract(play, "loss")))) {
-              yards = as.character(as.numeric(yards) * -1)
+            if (!(is.na(str_extract(play, "no gain")))) {
+             yards = "0"
             }
-            is.sack = TRUE
+            else {
+              yards = sub(".*for (.+) yard(s?)(.*?) .*", "\\1", play)
+              if (!(is.na(str_extract(play, "loss")))) {
+                if (!(is.na(str_extract(yards, "loss")))) {
+                  yards = str_extract(yards, "[:digit:]+")
+                }
+                yards = as.character(as.numeric(yards) * -1)
+              }
+              is.sack = TRUE
+            }
           }
           
           # get outcome
           play = tolower(play)
-          touch = !(is.na(str_extract(play, 
-                  "(touchdown|penalty|fumble|sacked|punt|incomplete|field goal|intercepted|kick|safety)")))
+          touch = !(is.na(str_extract(play, "(touchdown|penalty|fumble|sacked|punt|incomplete|field goal|intercepted|kick|safety|block)")))
           if (touch) {
-            touch = str_extract_all(play, 
-                    "(touchdown|penalty|fumble|sacked|punt|incomplete|field goal|intercepted|kick|safety)")
+            touch = str_extract_all(play, "(touchdown|penalty|fumble|sacked|punt|incomplete|field goal|intercepted|kick|safety|block)")
             if (touch == "touchdown") {
               outcome = "Touchdown"
               is.touchdown = TRUE
@@ -285,9 +313,25 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
               outcome = "Penalty"
               is.penalty = TRUE
             }
-            else if (touch == "fumble") {
+            else if (touch == "fumble" | touch == "block") {
               outcome = "Fumble"
               is.fumble = TRUE
+              recovery = sub(".* (?:recovered|returned) by (.+) at .*", "\\1", play)
+              recoveredBy = sub("(.+) .+", "\\1", recovery)
+              if ((recoveredBy != currentPossession & currentPossession != homeTeam) |
+                  (tolower(recoveredBy) != tolower(currentPossession) & currentPossession != homeTeam) |
+                  (recoveredBy == homeAbb & currentPossession != homeTeam) |
+                  (toupper(recoveredBy) == homeAbb & currentPossession != homeTeam)) {
+                currentPossession = homeTeam
+                is.turnover = TRUE
+              } 
+              else if ((recoveredBy != currentPossession & currentPossession != awayTeam) |
+                  (tolower(recoveredBy) != tolower(currentPossession) & currentPossession != awayTeam) |
+                  (recoveredBy == awayAbb & currentPossession != awayTeam) |
+                  (toupper(recoveredBy) == awayAbb & currentPossession != awayTeam)) {
+                currentPossession = awayTeam
+                is.turnover = TRUE
+              }
             }
             else if (touch == "sacked") {
               outcome = "Sack"
@@ -302,7 +346,7 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
               is.incompletePass = TRUE
             }
             else if (touch == "field goal") {
-              if (!(is.na(str_extract(play, "missed")))) {
+              if (!(is.na(str_extract(play, "(missed|failed)")))) {
                 outcome = "Missed Field Goal"         
               }
               else {
@@ -314,9 +358,10 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
             else if (touch == "intercepted") {
               outcome = "Interception"
               is.intercepted = TRUE
+              is.turnover = TRUE
             }
             else if (touch == "kick") {
-              if (!(is.na(str_extract(play, "missed")))) {
+              if (!(is.na(str_extract(play, "(missed|failed)")))) {
                 outcome = "Missed Extra Point Attempt"
               }
               else {
@@ -328,6 +373,7 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
             else if (touch == "safety") {
               outcome = "Safety"
               is.safety = TRUE
+              is.pointsScored = TRUE
             }
             else {
               outcome = str_to_lower(paste(unlist(touch), collapse = ", "))
@@ -335,26 +381,24 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
                 is.touchdown = TRUE
                 is.pointsScored = TRUE
               }
-              if (str_detect(outcome, "intercepted")) {
-                is.interception = TRUE
-                if (currentPossession == homeTeam) {
-                  currentPossession = awayTeam
-                }
-                else {
-                  currentPossession = homeTeam
-                }
-              }
-              if (str_detect(outcome, "fumble")) {
+              if (str_detect(outcome, "fumble") | str_detect(outcome, "block")) {
                 is.fumble = TRUE
-                recovery = sub(".* recovered by (.+) at .*", "\\1", play)
+                recovery = sub(".* (?:recovered|returned) by (.+) at .*", "\\1", play)
                 recoveredBy = sub("(.+) .+", "\\1", recovery)
                 recoveredBy = str_to_upper(recoveredBy)
-                if (recoveredBy == homeTeam | recoveredBy == homeAbb | grepl(recoveredBy, homeAbb) | 
-                    grepl(recoveredBy, homeTeam)) {
+                if ((recoveredBy == currentPossession & currentPossession != homeTeam) |
+                    (tolower(recoveredBy) == tolower(currentPossession) & currentPossession != homeTeam) |
+                    (recoveredBy == homeAbb & currentPossession != homeTeam) |
+                    (toupper(recoveredBy) == homeAbb & currentPossession != homeTeam)) {
                   currentPossession = homeTeam
-                }
-                else {
+                  is.turnover = TRUE
+                } 
+                else if ((recoveredBy == currentPossession & currentPossession != awayTeam) |
+                    (tolower(recoveredBy) == tolower(currentPossession) & currentPossession != awayTeam) |
+                    (recoveredBy == awayAbb & currentPossession != awayTeam) |
+                    (toupper(recoveredBy) == awayAbb & currentPossession != awayTeam)) {
                   currentPossession = awayTeam
+                  is.turnover = TRUE
                 }
               }
               if (str_detect(outcome, "sacked")) {
@@ -368,13 +412,7 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
               }
               if (str_detect(outcome, "safety")) {
                 is.safety = TRUE
-                # other team scored
-                if (currentPossession == homeTeam) {
-                  currentPossession = awayTeam
-                }
-                else {
-                  currentPossession = homeTeam
-                }
+                is.pointsScored = TRUE
               }
               if (str_detect(outcome, "kick")) {
                 is.extraPoint = TRUE
@@ -429,6 +467,8 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
         binarySafety = c(binarySafety, list(is.safety))
         binaryFumble = c(binaryFumble, list(is.fumble))
         binaryExtraPoint = c(binaryExtraPoint, list(is.extraPoint))
+        binaryTurnover = c(binaryTurnover, list(is.turnover))
+        playDescription = c(playDescription, list(play))
       }
       
       PlaybyPlayTable = data.frame(Date = date, Time = time, Location = location, "Home Team" = homeTeam, 
@@ -446,8 +486,10 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
                                    "Penalty?" = unlist(binaryPenalty), "Punt?" = unlist(binaryPunt), 
                                    "Sack?" = unlist(binaryPunt), "Interception?" = unlist(binaryInterception), 
                                    "Safety?" = unlist(binarySafety), "Fumble?" = unlist(binaryFumble), 
-                                   "Extra Point?" = unlist(binaryExtraPoint), "Drive Number" = unlist(numDrives), 
-                                   "Team Play Number" = unlist(totalPlays))
+                                   "Extra Point?" = unlist(binaryExtraPoint), "Turnover?" = unlist(binaryTurnover),
+                                   "Drive Number" = unlist(numDrives), 
+                                   "Team Play Number" = unlist(totalPlays),
+                                   "Play Description" = unlist(playDescription))
       print(cat(homeTeam, " vs. ", awayTeam, ": date ", date))
       return(PlaybyPlayTable)
     },

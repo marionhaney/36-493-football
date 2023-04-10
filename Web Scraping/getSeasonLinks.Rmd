@@ -26,7 +26,7 @@ DEFAULT: year = 2022, weeks = 10
 
 ```{r}
 # Default: 2022 regular season games
-getSeasonLinks = function(year = 2022, weeks = 10) {
+getSeasonLinks = function(year = 2022, weeks = 11) {
   tryCatch(
     {
       # Check if numeric input

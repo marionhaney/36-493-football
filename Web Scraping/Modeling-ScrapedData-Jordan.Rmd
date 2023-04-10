@@ -15,8 +15,8 @@ require(nnet)
 
 ```{r}
 # Read in data
-data = read.csv("PAC-2022-pbp.csv")
-data <- filter(data, rowSums(is.na(data)) != ncol(data))
+data = read.csv("PAC-2022-pbp3.csv")
+data = filter(data, rowSums(is.na(data)) != ncol(data))
 ```
 
 Helper function that takes in the current play index, a vector of the scoring play indices, and play-by-play data and returns the score type and drive number for the next score
@@ -27,7 +27,7 @@ FindNextScore = function(play_index, scoring_plays, data) {
   
   # if next score index has no more scores after the current play
   if (is.na(next_score_index) | (data$Quarter[play_index] %in% c("1st", "2nd") & data$Quarter[next_score_index] %in% c("3rd", "4th")) | (data$Quarter[play_index] %in% c("3rd", "4th") & data$Quarter[next_score_index] %in% c("1st", "2nd", "OT"))) {
-    score_type = "No Score"
+    score_type = "No_Score"
     score_drive = data$Drive.Number[play_index]
   } 
   # else return the observed next score type and drive number
@@ -112,19 +112,24 @@ GetDriveOutcome = function(play_index, last_play_of_drive, data) {
   else {
     
     # TD scored
-    if (data$Touchdown.[curr_last_play_index] | data$Extra.Point.[curr_last_play_index]) {
+    if (data$Touchdown.[curr_last_play_index] | data$Extra.Point.[curr_last_play_index] |
+        data$Touchdown.[curr_last_play_index - 1]) {
       drive_outcome = "Touchdown"
     }
     # FG scored
     else if (data$Field.Goal.[curr_last_play_index]) {
       drive_outcome = "Field Goal"
     }
+    # Safety Scored
+    else if (data$Safety.[curr_last_play_index]) {
+      drive_outcome = "Safety"
+    }
     # Punt
     else if (data$Punt.[curr_last_play_index]) {
       drive_outcome = "Punt"
     }
     # Turnover
-    else if (data$Interception.[curr_last_play_index] | data$Fumble.[curr_last_play_index]) {
+    else if (data$Turnover.[curr_last_play_index] | data$Turnover.[curr_last_play_index + 1]) {
       drive_outcome = "Turnover"
     }
     # Turnover on Downs
@@ -184,8 +189,31 @@ data$Half <- with(data, ifelse(Quarter %in% c("1st", "2nd"), "1st", "2nd"))
 
 Modeling
 ```{r}
+# Next Score Multinomial Regression
+
+# Refactor
+data_noEP = data %>% subset(!Extra.Point.)
+data_noEP = data_noEP %>% droplevels() %>% mutate(Next_Score_Half = 
+                         fct_relevel(Next_Score_Half, "No_Score")) 
+# Make yards to go variable
+data_noEP$Yards.to.Go = as.numeric(ifelse(data_noEP$Distance.to.First.Down ==
+        "Goal", data_noEP$Distance.to.Touchdown, data_noEP$Distance.to.First.Down))
+
+# Y: df$Next_Score_Half
+# X: df$Down, log(df$Distance.to.Touchdown)
+ep_model = multinom(factor(Next_Score_Half) ~ factor(Down)
+                           + log(Yards.to.Go) + Drive.Starting.Distance.to.Touchdown + log(Distance.to.Touchdown), data_noEP)
+summary(ep_model)
+```
+
+```{r}
+# Class Probabilities
+class_prob = predict(ep_model, data_noEP, type = "probs") %>% as_tibble() %>% 
+              mutate(Next_Score_Half = data_noEP$Next_Score_Half)
 
 ```
+
+
 
 Graphics
 ```{r}

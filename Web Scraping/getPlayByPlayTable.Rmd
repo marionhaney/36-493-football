@@ -280,7 +280,7 @@ for (wk in seasonLinks) {
 df = getPlayByPlayTable(playByPlayLinks, bigBadTable = NULL)
 ```
 ```{r}
-write.csv(df, "CMU-2022-pbp.csv", row.names=FALSE)
+write.csv(df, "CMU-2022-pbp3.csv", row.names=FALSE)
 ```
 
 
