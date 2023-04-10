@@ -1,0 +1,116 @@
+---
+title: "Modeling-Marion"
+author: "Marion Haney"
+date: "2023-04-10"
+output: html_document
+---
+
+Load in libraries
+```{r}
+# Libraries
+require(ggplot2)
+require(tidyverse)
+require(dplyr)
+require(nnet)
+require(nnet)
+require(caret)
+```
+
+Load in data
+```{r}
+df <- read.csv("PAC-2022-Cleaned-pbp.csv")
+```
+
+```{r}
+df <- df[df$Next_Score_Half %in% c("Field_Goal", "Opp_Field_Goal", "Touchdown", "Opp_Touchdown", "No_Score"),]
+df$Next_Score_Half <- factor(df$Next_Score_Half, levels = c("No_Score", 
+                                                            "Field_Goal", 
+                                                            "Opp_Field_Goal",
+                                                            "Touchdown",
+                                                            "Opp_Touchdown"))
+```
+
+
+Multinomial logistic regression for next score using down and distance (yds) to touchdown
+```{r}
+# Y: df$Next_Score_Half
+# X: df$Down, log(df$Distance.to.Touchdown)
+mult.log.model <- multinom(factor(Next_Score_Half) ~ factor(Down)
+                           + log(Distance.to.Touchdown), data = df, maxit = 300)
+summary(mult.log.model)
+### how do i change the reference category to "No Score"?
+```
+
+
+Model Visualizations:
+From: 
+https://www.stat.cmu.edu/cmsac/sure/2022/materials/lectures/slides/21-Multinomial-multilevel.html#20 
+```{r}
+init_loso_cv_preds <- map_dfr(unique(df), 
+          function(x) {
+            # Separate test and training data:
+            ## 75% of the sample size
+            smp_size <- floor(0.75 * nrow(df))
+            set.seed(1)
+            train_ind <- sample(seq_len(nrow(df)), size = smp_size)
+            train_data <- df[train_ind, ]
+            test_data <- df[-train_ind, ]
+            
+            # Fit multinomial logistic regression model:
+            ep_model <- multinom(factor(Next_Score_Half) ~ factor(Down)
+                           + log(Distance.to.Touchdown), data = train_data, maxit = 300)
+            
+            # Return dataset of class probabilities:
+            predict(ep_model, newdata = test_data, type = "probs") %>%
+              as_tibble() %>%
+              mutate(Next_Score_Half = test_data$Next_Score_Half)
+            })
+```
+
+Calibration results for each scoring event
+```{r}
+ep_cv_loso_calibration_results <- init_loso_cv_preds %>%
+  pivot_longer(No_Score:Opp_Touchdown,
+               names_to = "next_score_type",
+               values_to = "pred_prob") %>%
+  mutate(bin_pred_prob = round(pred_prob / 0.05) * .05) %>%
+  group_by(next_score_type, bin_pred_prob) %>%
+  summarize(n_plays = n(), 
+            n_scoring_event = length(which(Next_Score_Half == next_score_type)),
+            bin_actual_prob = n_scoring_event / n_plays,
+            bin_se = sqrt((bin_actual_prob * (1 - bin_actual_prob)) / n_plays)) %>%
+  ungroup() %>%
+  mutate(bin_upper = pmin(bin_actual_prob + 2 * bin_se, 1),
+         bin_lower = pmax(bin_actual_prob - 2 * bin_se, 0))
+```
+
+```{r}
+ep_cv_loso_calibration_results <- na.omit(ep_cv_loso_calibration_results)
+ep_cv_loso_calibration_results %>%
+  mutate(next_score_type = fct_relevel(next_score_type, "No_Score", "Field_Goal", 
+                                       "Opp_Field_Goal", "Touchdown", "Opp_Touchdown"),
+  next_score_type = fct_recode(next_score_type,
+                               "No_Score (0)" = "No_Score", 
+                               "Field_Goal (3)" = "Field_Goal",
+                               "Opp_Field_Goal (-3)" = "Opp_Field_Goal",
+                               "Touchdown (7)" = "Touchdown",
+                               "Opp_Touchdown (-7)" = "Opp_Touchdown")) %>%
+  ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
+  geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed") +
+  geom_smooth(se = FALSE) + 
+  geom_point(aes(size = n_plays)) +
+  geom_errorbar(aes(ymin = bin_lower, ymax = bin_upper)) + #coord_equal() +   
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(size = "Number of plays", x = "Estimated next score probability", 
+       y = "Observed next score probability") + 
+  theme_bw() + 
+  theme(strip.background = element_blank(), 
+        axis.text.x = element_text(angle = 90), 
+        legend.position = c(1, .05), legend.justification = c(1, 0)) +
+  facet_wrap(~ next_score_type, ncol = 4)
+```
+
+
+
+
