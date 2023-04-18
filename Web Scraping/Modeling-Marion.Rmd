@@ -54,14 +54,14 @@ df$fold <- rand_vals
 
 Multinomial logistic regression for next score using down and distance (yds) to touchdown
 ```{r}
-mult.log.model <- multinom(factor(Next_Score_Half) ~ 
+ep.model <- multinom(factor(Next_Score_Half) ~ 
                              factor(Down)
                            + log(Distance.to.First.Down2)
                            + Distance.to.Touchdown
                            + factor(is.Goal.Down)
                            + factor(Down):log(Distance.to.First.Down2), 
                            data = df, maxit = 300)
-summary(mult.log.model)
+summary(ep.model)
 ```
 
 Model Visualizations:
@@ -140,11 +140,48 @@ ep_cv_loso_calibration_results %>%
   facet_wrap(~ next_score_type, ncol = 4)
 ```
 
+Expected Points Column
+```{r}
+# get base probabilities
+base_ep_preds <- as.data.frame(predict(ep.model, newdata = df, type = "probs"))
+base_ep_preds <- rename(base_ep_preds,
+                        No_Score_Prob=No_Score,
+                        Field_Goal_Prob=Field_Goal,
+                        Opp_Field_Goal_Prob=Opp_Field_Goal,
+                        Touchdown_Prob=Touchdown,
+                        Opp_Touchdown_Prob=Opp_Touchdown)
+```
+
+```{r}
+# add to df
+df <- cbind(df, base_ep_preds)
+```
+
+```{r}
+EP <- rep(0,7787)
+# multiply by point values
+for (ii in 1:nrow(df)) {
+  EP[[ii]] = sum(c(df[ii,38]*0, df[ii,39]*3, df[ii,40]*-3, df[ii,41]*7, df[ii,42]*-7))
+}
+df$EP <- EP
+```
 
 
+Expected Points Added Column
+```{r}
+df <- df %>%
+  group_by(game.ID) %>%
+  mutate(EPA =
+           ifelse(Team.Possession == lead(Team.Possession),
+                  lead(EP) - EP,
+                  -lead(EP) - EP)) %>%
+  ungroup()
+```
 
-
-
+Save the EP/EPA columns to the df
+```{r}
+write.csv(df, "PAC-2022-cleaned-pbp-wEPA.csv")
+```
 
 
 
