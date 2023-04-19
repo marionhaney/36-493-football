@@ -41,30 +41,27 @@ df$is.Goal.Down <- ifelse(df$Distance.to.First.Down == "Goal",
                           1, 0)
 ```
 
-Add a game.ID column
+Add a game.ID column and a fold column
 ```{r}
-game.ID <- rep("", nrow(df))
-for (ii in 1:nrow(df)) {
-  row = data.frame(df[ii,])
-  game.ID[ii] = cat(row$Date, row$Home.Team.Abbreviation, "x", row$Away.Team.Abbreviation)
-}
-df$game.ID <- game.ID
+df$game.ID <- paste(df$Date, df$Home.Team.Abbreviation, "x", df$Away.Team.Abbreviation, sep="")
+
+# fold
+set.seed(123)
+rand_vals <- sample(1:5, 7787, replace=TRUE)
+df$fold <- rand_vals
 ```
 
 
 Multinomial logistic regression for next score using down and distance (yds) to touchdown
 ```{r}
-# Y: df$Next_Score_Half
-# X: df$Down, log(df$Distance.to.Touchdown)
-mult.log.model <- multinom(factor(Next_Score_Half) ~ 
+ep.model <- multinom(factor(Next_Score_Half) ~ 
                              factor(Down)
                            + log(Distance.to.First.Down2)
                            + Distance.to.Touchdown
                            + factor(is.Goal.Down)
                            + factor(Down):log(Distance.to.First.Down2), 
                            data = df, maxit = 300)
-summary(mult.log.model)
-### how do i change the reference category to "No Score"?
+summary(ep.model)
 ```
 
 Model Visualizations:
@@ -72,25 +69,31 @@ From:
 https://www.stat.cmu.edu/cmsac/sure/2022/materials/lectures/slides/21-Multinomial-multilevel.html#20 
 *** Change to CV by fold/fold_ids
 ```{r}
-init_loso_cv_preds <- map_dfr(unique(df), 
-          function(x) {
-            # Separate test and training data:
-            ## 75% of the sample size
-            smp_size <- floor(0.75 * nrow(df))
-            set.seed(1)
-            train_ind <- sample(seq_len(nrow(df)), size = smp_size)
-            train_data <- df[train_ind, ]
-            test_data <- df[-train_ind, ]
-            
-            # Fit multinomial logistic regression model:
-            ep_model <- multinom(factor(Next_Score_Half) ~ factor(Down)
-                           + log(Distance.to.Touchdown), data = train_data, maxit = 300)
-            
-            # Return dataset of class probabilities:
-            predict(ep_model, newdata = test_data, type = "probs") %>%
-              as_tibble() %>%
-              mutate(Next_Score_Half = test_data$Next_Score_Half)
-            })
+init_loso_cv_preds <- df %>%
+  group_by(fold) %>%
+  mutate(train = row_number() <= round(0.75 * n())) %>%
+  ungroup() %>%
+  group_split() %>%
+  map(function(split) {
+    # Separate test and training data:
+    train_data <- split %>% filter(train)
+    test_data <- split %>% filter(!train)
+
+    # Fit multinomial logistic regression model:
+    ep_model <- multinom(factor(Next_Score_Half) ~ 
+                             factor(Down)
+                           + log(Distance.to.First.Down2)
+                           + Distance.to.Touchdown
+                           + factor(is.Goal.Down)
+                           + factor(Down):log(Distance.to.First.Down2), 
+                           data = df, maxit = 300)
+
+    # Return dataset of class probabilities:
+    predict(ep_model, newdata = test_data, type = "probs") %>%
+      as_tibble() %>%
+      mutate(Next_Score_Half = test_data$Next_Score_Half)
+  }) %>%
+  bind_rows()
 ```
 
 Calibration results for each scoring event
@@ -136,6 +139,51 @@ ep_cv_loso_calibration_results %>%
         legend.position = c(1, .05), legend.justification = c(1, 0)) +
   facet_wrap(~ next_score_type, ncol = 4)
 ```
+
+Expected Points Column
+```{r}
+# get base probabilities
+base_ep_preds <- as.data.frame(predict(ep.model, newdata = df, type = "probs"))
+base_ep_preds <- rename(base_ep_preds,
+                        No_Score_Prob=No_Score,
+                        Field_Goal_Prob=Field_Goal,
+                        Opp_Field_Goal_Prob=Opp_Field_Goal,
+                        Touchdown_Prob=Touchdown,
+                        Opp_Touchdown_Prob=Opp_Touchdown)
+```
+
+```{r}
+# add to df
+df <- cbind(df, base_ep_preds)
+```
+
+```{r}
+EP <- rep(0,7787)
+# multiply by point values
+for (ii in 1:nrow(df)) {
+  EP[[ii]] = sum(c(df[ii,38]*0, df[ii,39]*3, df[ii,40]*-3, df[ii,41]*7, df[ii,42]*-7))
+}
+df$EP <- EP
+```
+
+
+Expected Points Added Column
+```{r}
+df <- df %>%
+  group_by(game.ID) %>%
+  mutate(EPA =
+           ifelse(Team.Possession == lead(Team.Possession),
+                  lead(EP) - EP,
+                  -lead(EP) - EP)) %>%
+  ungroup()
+```
+
+Save the EP/EPA columns to the df
+```{r}
+write.csv(df, "PAC-2022-cleaned-pbp-wEPA.csv")
+```
+
+
 
 
 
