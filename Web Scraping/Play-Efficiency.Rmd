@@ -14,7 +14,7 @@ require(varhandle)
 
 ```{r}
 # Read in data
-data = read.csv("./CMU-2022-pbp.csv")
+data = read.csv("./CMU-2022-pbp3.csv")
 #data = read.csv("./CMU-2022-pbp2.csv")
 ```
 
@@ -64,8 +64,26 @@ ggplot(CMUDefense, aes(Down, Efficient, fill = Down)) +
 ```
 
 ```{r}
-ggplot(CMUDefense, aes(Down, Efficient, fill = Down)) +
-  geom_bar()
+ggplot(CMUOffense, aes(x = Down, y = Efficient / nrow(CMUOffense), 
+                       label = scales::percent(Efficient / nrow(CMUOffense)))) +
+  geom_bar(stat = "identity", aes(fill = Down)) +
+  geom_col(position = "dodge") +
+  geom_text(vjust = 0) +
+  #geom_text(aes(y = Efficient / nrow(CMUOffense), label = scales::percent(Efficient / nrow(CMUOffense))),
+  #          stat="identity", vjust=-0.5) +
+  scale_y_continuous(labels = scales::percent) +
+  geom_errorbar(aes(ymin = (Efficient / nrow(CMUOffense)), ymax = (Efficient / nrow(CMUOffense)), color = "orange"))
+  
+
+#helper = data %>% group_by(Down) %>% summarise_at(vars(Efficient), list(name = sd, counts = length))
+
+#ggplot(df,aes(x))+geom_bar(aes(y=(..count..)/sum(..count..)))+scale_y_continuous(labels
+#=percent_format())
+
+#ggplot(CMUOffense) +
+#    geom_bar(aes(x=Down), y=helper$counts, fill="skyblue", alpha=0.7) +
+#    geom_errorbar(aes(x=Down, ymin=Efficient-helper$name , 
+#                      ymax=Efficient+helper$name), width=0.4, colour="orange", alpha=0.9, size=1.3)
 ```
 
 

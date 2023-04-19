@@ -314,6 +314,22 @@ data$Quarter = as.factor(data$Quarter)
 data$Down = as.factor(data$Down)
 ```
 
+
+```{r}
+#data = read.csv("PAC-2022-Cleaned-pbp.csv")
+# Line Graph
+ggplot(data, aes(x = Distance.to.Touchdown, y = EP, fill = EP)) +
+  geom_abline()
+```
+
+```{r}
+# Density Graph
+ggplot(data, aes(x = Distance.to.Touchdown, y = EP, fill = EP)) +
+  geom_density()
+```
+
+
+
 ```{r}
 ggplot(data, aes(x = Drive_Outcome, fill = Down)) +
   geom_bar() +
