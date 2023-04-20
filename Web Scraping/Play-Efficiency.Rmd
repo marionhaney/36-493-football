@@ -14,8 +14,9 @@ require(varhandle)
 
 ```{r}
 # Read in data
-data = read.csv("./CMU-2022-pbp3.csv")
+#data = read.csv("./CMU-2022-pbp3.csv")
 #data = read.csv("./CMU-2022-pbp2.csv")
+data = read.csv("PAC-2022-cleaned-pbp-wEPA.csv")
 ```
 
 ```{r}
@@ -25,65 +26,95 @@ data$Distance.to.First.Down = as.numeric(data$Distance.to.First.Down)
 ```
 ```{r}
 # Efficiency Model
-data["Efficient"] = ifelse(data$Down == 1 & check.numeric(data$Yards) & as.numeric(data$Yards) >= 4, 1,
-                    ifelse(data$Down == 2 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down/2, 1,
-                    ifelse(data$Down == 3 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down, 1,
-                    ifelse(data$Down == 4 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down, 1,
-                            0))))
+#data["Efficient"] = ifelse(data$Down == 1 & check.numeric(data$Yards) & as.numeric(data$Yards) >= 4, 1,
+#                    ifelse(data$Down == 2 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down/2, 1,
+#                    ifelse(data$Down == 3 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down, 1,
+#                    ifelse(data$Down == 4 & check.numeric(data$Yards) & as.numeric(data$Yards) > data$Distance.to.First.Down, 1,
+#                            0))))
+
+#data["Efficient"] = ifelse(data$Down == 1 & check.numeric(data$Net.Yards) & as.numeric(data$Net.Yards) >= 4, 1,
+#                    ifelse(data$Down == 2 & check.numeric(data$Net.Yards) & as.numeric(data$Net.Yards) > data$Distance.to.First.Down2/2, 1,
+#                    ifelse(data$Down == 3 & check.numeric(data$Net.Yards) & as.numeric(data$Net.Yards) > data$Distance.to.First.Down2, 1,
+#                    ifelse(data$Down == 4 & check.numeric(data$Net.Yards) & as.numeric(data$Net.Yards) > data$Distance.to.First.Down2, 1,
+#                            0))))
+
+data = as.data.frame(data %>% 
+                    group_by(Team.Possession, Drive.Number) %>% 
+                    mutate(Efficient = ifelse(Down == 1 & Net.Yards >= 4, 1, 
+                                       ifelse(Down == 2 & Net.Yards > Distance.to.First.Down2 / 2, 1, 
+                                       ifelse(Down == 3 & lead(Down) == 1 & Team.Possession == lead(Team.Possession), 1, 
+                                       ifelse(Down == 4 & lead(Down) == 1 & !Punt. & Team.Possession == lead(Team.Possession), 1, 0))))))
+
+
 #1st Down: 4 Yards or more
 #2nd Down: Gaining Half of the required distance for the First Down
 #3rd Down: Converting the First Down
 #4th Down: Converting the First Down
 data$Down = as.factor(data$Down)
 ```
+
+
 ```{r}
 CMUOffense = subset(data, data$Team.Possession == "Carnegie Mellon")
 ```
 
-
 ```{r}
-# CMU Offense
-means <- aggregate(Efficient ~ Down, CMUOffense, mean)
-ggplot(CMUOffense, aes(Down, Efficient, fill = Down)) +
-  geom_boxplot() +
-  stat_summary(fun=mean, geom='point', shape=20, size = 8) +
-  geom_text(data = means, aes(label = round(Efficient, 4), y = Efficient + 0.08)) +
-  labs(title = "CMU Offense Effiency per Down")
+#CMUDefense = subset(data, data$Team.Possession != "Carnegie Mellon")
+CMUDefense = subset(data, str_detect(data$game.ID, "CMU") & data$Team.Possession != "Carnegie Mellon")
 ```
 
 ```{r}
-CMUDefense = subset(data, data$Team.Possession != "Carnegie Mellon")
-```
+CMUO_summary = CMUOffense %>%
+  group_by(Down) %>%
+  summarize(prop_efficient = mean(Efficient, na.rm = TRUE),
+                      n_plays = n()) %>%
+  mutate(prop_se = sqrt(prop_efficient * (1- prop_efficient) / n_plays))
 
-```{r}
-means <- aggregate(Efficient ~ Down, CMUDefense, mean)
-ggplot(CMUDefense, aes(Down, Efficient, fill = Down)) +
-  geom_boxplot() +
-  stat_summary(fun=mean, geom='point', shape=20, size = 8) +
-  geom_text(data = means, aes(label = round(Efficient, 4), y = Efficient + 0.08))
-```
-
-```{r}
-ggplot(CMUOffense, aes(x = Down, y = Efficient / nrow(CMUOffense), 
-                       label = scales::percent(Efficient / nrow(CMUOffense)))) +
+ggplot(CMUO_summary, aes(x = Down, y = prop_efficient, 
+                         ymin = prop_efficient - prop_se, ymax = prop_efficient + prop_se, 
+                         fill = Down)) +
   geom_bar(stat = "identity", aes(fill = Down)) +
-  geom_col(position = "dodge") +
-  geom_text(vjust = 0) +
-  #geom_text(aes(y = Efficient / nrow(CMUOffense), label = scales::percent(Efficient / nrow(CMUOffense))),
-  #          stat="identity", vjust=-0.5) +
+  geom_errorbar(width = .2) +
   scale_y_continuous(labels = scales::percent) +
-  geom_errorbar(aes(ymin = (Efficient / nrow(CMUOffense)), ymax = (Efficient / nrow(CMUOffense)), color = "orange"))
-  
+  geom_col(position = "dodge") +
+  geom_text(aes(label = scales::percent(round(prop_efficient, 2))), vjust = 1.5) +
+  labs(title = "Bar Plot of CMU Offense Efficiency by Down", y = "Percentage (%)")
+```
 
-#helper = data %>% group_by(Down) %>% summarise_at(vars(Efficient), list(name = sd, counts = length))
+```{r}
+CMUD_summary = CMUDefense %>%
+  group_by(Down) %>%
+  summarize(prop_efficient = mean(Efficient, na.rm = TRUE),
+                      n_plays = n()) %>%
+  mutate(prop_se = sqrt(prop_efficient * (1- prop_efficient) / n_plays))
 
-#ggplot(df,aes(x))+geom_bar(aes(y=(..count..)/sum(..count..)))+scale_y_continuous(labels
-#=percent_format())
+ggplot(CMUD_summary, aes(x = Down, y = prop_efficient, 
+                         ymin = prop_efficient - prop_se, ymax = prop_efficient + prop_se, 
+                         fill = Down)) +
+  geom_bar(stat = "identity", aes(fill = Down)) +
+  geom_errorbar(width = .2) +
+  scale_y_continuous(labels = scales::percent) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = scales::percent(round(prop_efficient, 2))), vjust = 1.5) +
+  labs(title = "Bar Plot of CMU Defense Efficiency by Down", y = "Percentage (%)")
+```
 
-#ggplot(CMUOffense) +
-#    geom_bar(aes(x=Down), y=helper$counts, fill="skyblue", alpha=0.7) +
-#    geom_errorbar(aes(x=Down, ymin=Efficient-helper$name , 
-#                      ymax=Efficient+helper$name), width=0.4, colour="orange", alpha=0.9, size=1.3)
+```{r}
+PAC_summary = data %>%
+  group_by(Down) %>%
+  summarize(prop_efficient = mean(Efficient, na.rm = TRUE),
+                      n_plays = n()) %>%
+  mutate(prop_se = sqrt(prop_efficient * (1- prop_efficient) / n_plays))
+
+ggplot(PAC_summary, aes(x = Down, y = prop_efficient, 
+                         ymin = prop_efficient - prop_se, ymax = prop_efficient + prop_se, 
+                         fill = Down)) +
+  geom_bar(stat = "identity", aes(fill = Down)) +
+  geom_errorbar(width = .2) +
+  scale_y_continuous(labels = scales::percent) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = scales::percent(round(prop_efficient, 2))), vjust = 1.5) +
+  labs(title = "Bar Plot of PAC Efficiency by Down", y = "Percentage (%)")
 ```
 
 

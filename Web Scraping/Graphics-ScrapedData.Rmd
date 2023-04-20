@@ -60,3 +60,78 @@ ggplot(CMUOffenseScoredFG) +
        subtitle = "Binwidth = 5 yards")
 ```
 
+```{r}
+data = read.csv("PAC-2022-cleaned-pbp-wEPA.csv")
+
+# Make categorical variables
+data$Next_Score_Half = as.factor(data$Next_Score_Half)
+data$Drive_Outcome = as.factor(data$Drive_Outcome)
+data$Quarter = as.factor(data$Quarter)
+data$Down = as.factor(data$Down)
+```
+
+```{r}
+# Line Graph
+ggplot(data, aes(x = Distance.to.Touchdown, y = EP, color = Down)) +
+  geom_line() +
+  scale_x_reverse()
+```
+
+```{r}
+# Line Graph
+ggplot(data, aes(x = Distance.to.Touchdown, y = EP, color = Down)) +
+  geom_smooth() +
+  scale_x_reverse() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 20, color = "red", lty = 2) +
+  labs(title = "Expected Points Chart of PAC Teams", x = "Distance to Opponent's Touchdown",
+       y = "Expected Points (EP)") +
+  theme_bw()
+```
+
+```{r}
+# Line Graph
+ggplot(data, aes(x = Distance.to.Touchdown)) +
+  geom_smooth(aes(y = Touchdown_Prob), fill = "pink") +
+  geom_smooth(aes(y = Field_Goal_Prob)) +
+  scale_x_reverse() +
+  geom_hline(yintercept = 0) +
+  labs(title = "Expected Points Chart of PAC Teams", x = "Distance to Opponent's Touchdown",
+       y = "Expected Points (EP)")
+```
+
+```{r}
+# Line Graph
+data %>%
+  select(Distance.to.Touchdown, Touchdown_Prob, Field_Goal_Prob) %>% 
+  pivot_longer(cols = c(Touchdown_Prob, Field_Goal_Prob)) %>%
+  ggplot(aes(x = Distance.to.Touchdown, y = value, color = name)) +
+  geom_smooth() +
+  scale_x_reverse() +
+  labs(title = "Probability of Scoring Outcome", x = "Distance to Opponent's Touchdown",
+       y = "Probability of Outcome Occuring", color = "Scoring Outcome") +
+  scale_color_hue(labels = c('Field Goal Percentage', 'Touchdown Percentage')) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_bw()
+```
+
+```{r}
+# Line Graph
+data %>%
+  select(Distance.to.Touchdown, Touchdown_Prob, Field_Goal_Prob) %>% 
+  pivot_longer(cols = c(Touchdown_Prob, Field_Goal_Prob)) %>%
+  ggplot(aes(x = Distance.to.Touchdown, y = value, fill = name)) +
+  stat_smooth(geom = 'area', position = "stack", alpha = 1/2) +
+  scale_x_reverse() +
+  labs(title = "Probability of Scoring - CMU", x = "Distance to Opponent's Touchdown",
+       y = "Probability of Outcome", fill = "Scoring Outcome") +
+  scale_fill_hue(labels = c('Field Goal Percentage', 'Touchdown Percentage'))
+```
+
+
+```{r}
+# Density Graph
+ggplot(data, aes(x = Distance.to.Touchdown, y = EP)) +
+  geom_density()
+```
+

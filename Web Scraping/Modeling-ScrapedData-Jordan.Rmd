@@ -339,10 +339,10 @@ ggplot(data, aes(x = Drive_Outcome, fill = Down)) +
 ```
 
 ```{r}
-ggplot(data, aes(x = Next_Score_Half, fill = Down)) +
+ggplot(data, aes(x = Next_Score_Half, fill = factor(Down))) +
   geom_bar() +
   labs(title = "Stacked Bar Plot of Next Score Event by Down", x = " Next Score Event") +
-  geom_text(stat = "count", aes(label = ..count..), size = 3, position = position_stack(vjust = 0.5)) +
+  #geom_text(stat = "count", aes(label = ..count..), size = 3, position = position_stack(vjust = 0.5)) +
   theme(axis.text.x = element_text(angle = 90)) 
 ```
 
