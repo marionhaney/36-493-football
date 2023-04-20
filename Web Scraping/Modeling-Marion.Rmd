@@ -19,6 +19,7 @@ require(caret)
 Load in data
 ```{r}
 df <- read.csv("PAC-2022-Cleaned-pbp.csv")
+cmu.df <- read.csv("PAC-2022-Cleaned-pbp.csv")
 ```
 
 Reorder the factors of Next_Score_Half
@@ -182,6 +183,104 @@ Save the EP/EPA columns to the df
 ```{r}
 write.csv(df, "PAC-2022-cleaned-pbp-wEPA.csv")
 ```
+
+
+## JUST CMU
+Reorder the factors of Next_Score_Half
+```{r}
+cmu.df <- cmu.df[cmu.df$Next_Score_Half %in% c("Field_Goal", "Opp_Field_Goal", "Touchdown", "Opp_Touchdown", "No_Score"),]
+cmu.df$Next_Score_Half <- factor(cmu.df$Next_Score_Half, levels = c("No_Score", 
+                                                            "Field_Goal", 
+                                                            "Opp_Field_Goal",
+                                                            "Touchdown",
+                                                            "Opp_Touchdown"))
+```
+
+
+Cleaning Distance.to.First.Down
+```{r}
+cmu.df$Distance.to.First.Down2 <- as.numeric(ifelse(cmu.df$Distance.to.First.Down == "Goal",
+                                                cmu.df$Distance.to.Touchdown,
+                                                cmu.df$Distance.to.First.Down))
+cmu.df$is.Goal.Down <- ifelse(cmu.df$Distance.to.First.Down == "Goal",
+                          1, 0)
+```
+
+Add a game.ID column and a fold column
+```{r}
+cmu.df$game.ID <- paste(cmu.df$Date, cmu.df$Home.Team.Abbreviation, "x", cmu.df$Away.Team.Abbreviation, sep="")
+
+# fold
+set.seed(123)
+rand_vals <- sample(1:5, 7787, replace=TRUE)
+cmu.df$fold <- rand_vals
+```
+
+```{r}
+cmu.df <- subset(cmu.df, str_detect(cmu.df$game.ID, "CMU"))
+```
+
+Multinomial logistic regression for next score using down and distance (yds) to touchdown
+```{r}
+cmu.ep.model <- multinom(factor(Next_Score_Half) ~ 
+                             factor(Down)
+                           + log(Distance.to.First.Down2)
+                           + Distance.to.Touchdown
+                           + factor(is.Goal.Down)
+                           + factor(Down):log(Distance.to.First.Down2), 
+                           data = cmu.df, maxit = 300)
+summary(cmu.ep.model)
+```
+
+
+Expected Points Column
+```{r}
+# get base probabilities
+cmu_base_ep_preds <- as.data.frame(predict(cmu.ep.model, newdata = cmu.df, type = "probs"))
+cmu_base_ep_preds <- rename(cmu_base_ep_preds,
+                        No_Score_Prob=No_Score,
+                        Field_Goal_Prob=Field_Goal,
+                        Opp_Field_Goal_Prob=Opp_Field_Goal,
+                        Touchdown_Prob=Touchdown,
+                        Opp_Touchdown_Prob=Opp_Touchdown)
+```
+
+```{r}
+# add to df
+cmu.df <- cbind(cmu.df, cmu_base_ep_preds)
+```
+
+```{r}
+cmu.EP <- rep(0,1406)
+# multiply by point values
+for (ii in 1:nrow(cmu.df)) {
+  cmu.EP[[ii]] = sum(c(cmu.df[ii,38]*0, cmu.df[ii,39]*3, cmu.df[ii,40]*-3, cmu.df[ii,41]*7, cmu.df[ii,42]*-7))
+}
+cmu.df$EP <- cmu.EP
+```
+
+
+Expected Points Added Column
+```{r}
+cmu.df <- cmu.df %>%
+  group_by(game.ID) %>%
+  mutate(EPA =
+           ifelse(Team.Possession == lead(Team.Possession),
+                  lead(EP) - EP,
+                  -lead(EP) - EP)) %>%
+  ungroup()
+```
+
+Save the EP/EPA columns to the df
+```{r}
+write.csv(cmu.df, "CMU-2022-cleaned-pbp-wEPA.csv")
+```
+
+
+
+
+
+
 
 
 
