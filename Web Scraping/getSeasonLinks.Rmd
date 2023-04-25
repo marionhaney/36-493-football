@@ -25,7 +25,7 @@ DEFAULT: year = 2022, weeks = 10
 
 
 ```{r}
-# Default: 2022 regular season games
+# Default: 2022 regular season games (11 weeks because of bye week)
 getSeasonLinks = function(year = 2022, weeks = 11) {
   tryCatch(
     {

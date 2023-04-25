@@ -27,9 +27,12 @@ teamData = getAllTeams()
 pacTeams = getConferenceTeams(teamData, "PAC")
 pac.teams.df = data.frame(pacTeams)
 playByPlayLinks = c()
+driveSummaryLinks = c()
 for (wk in seasonLinks) {
-  wkLinks = getWeekPlayByPlayLinks(wk)
-  playByPlayLinks = append(playByPlayLinks, wkLinks)
+  weekPBPLinks = getWeekPlayByPlayLinks(wk)
+  weekDSLinks = getWeekDriveSummaryLinks(wk)
+  playByPlayLinks = append(playByPlayLinks, weekPBPLinks)
+  driveSummaryLinks = append(driveSummaryLinks, weekDSLinks)
 }
 ```
 
@@ -37,7 +40,7 @@ for (wk in seasonLinks) {
 Get team Play by Play for 2022 season weeks 1-11 (counting bye week)
 ```{r}
 bigBadTable = NULL
-team.df = data.frame(getPlayByPlayTable(playByPlayLinks, bigBadTable, wantedTeams = pacTeams))
+team.df = data.frame(getPlayByPlayTable(playByPlayLinks, driveSummaryLinks, bigBadTable, wantedTeams = pacTeams))
 ```
 
 

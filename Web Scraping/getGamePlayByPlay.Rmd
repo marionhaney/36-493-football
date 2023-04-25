@@ -442,7 +442,6 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
             }
           }
         }
-        #print(c(play))
         
         quarter = c(quarter, list(currentQuarter))
         possession = c(possession, list(currentPossession))
@@ -501,16 +500,16 @@ getGamePlayByPlay = function(game, date, time, location, homeTeam, homeAbb, away
       print(cat("Away Team =", awayTeam))
       #debug(getGamePlayByPlay)
       return(NA)
-    },
-    warning=function(w) {
-      message('A Warning Occurred')
-      print(w)
-      print("Function = getGamePlayByPlay")
-      print(cat("Home Team =", homeTeam))
-      print(cat("Away Team =", awayTeam))
+    }#,
+    #warning=function(w) {
+    #  message('A Warning Occurred')
+    #  print(w)
+    #  print("Function = getGamePlayByPlay")
+    #  print(cat("Home Team =", homeTeam))
+    #  print(cat("Away Team =", awayTeam))
       #debug(getGamePlayByPlay)
-      return(NA)
-    }
+    #  return(NA)
+    #}
   )
 }
 ```

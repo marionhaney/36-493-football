@@ -188,6 +188,12 @@ Quarters to Half
 data$Half <- with(data, ifelse(Quarter %in% c("1st", "2nd"), "1st", "2nd"))
 ```
 
+Save Data
+```{r}
+write.csv(data, "PAC-2022-Cleaned-pbp2.csv", row.names=FALSE)
+```
+
+
 Modeling
 ```{r}
 # Next Score Multinomial Regression

@@ -1,7 +1,7 @@
 ---
-title: "getWeekPlayByPlayLinks"
+title: "getWeekDriveSummaryLinks"
 author: "Jordan Gilbert, Marion Haney"
-date: '2023-02-15'
+date: "2023-04-25"
 output: pdf_document
 ---
 
@@ -16,16 +16,16 @@ require(assertthat)
 ```
 
 
-getWeekPlayByPlayLinks:
+getWeekDriveSummaryLinks:
 INPUT: 
 url: the url which has the games played during a certain week of the season
 (output of getSeasonLinks)
-OUTPUT: a vector containing links to the play by play table of each game played
+OUTPUT: a vector containing links to the drive summary table of each game played
 during the certain week of the defined season
 
 
 ```{r}
-getWeekPlayByPlayLinks = function(url) {
+getWeekDriveSummaryLinks = function(url) {
   tryCatch(
     {
       # Check if string input
@@ -44,9 +44,9 @@ getWeekPlayByPlayLinks = function(url) {
       # all links on table
       allLinks = x %>% html_nodes("a") %>% html_attr("href") %>% grep("boxscores", ., value = TRUE)
       
-      # links to play by play
-      pbp_links = unique(unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
-              end = "?view=plays"; adding = paste(begin, x, sep = ""); 
+      # links to drive summary
+      ds_links = unique(unlist(lapply(allLinks, function(x) {begin = "https://www.d3football.com"; 
+              end = "?view=drives"; adding = paste(begin, x, sep = ""); 
               ending = paste(adding, end, sep = "");
               return(ending)})))
     },
@@ -69,6 +69,5 @@ getWeekPlayByPlayLinks = function(url) {
 Testing
 ```{r}
 # gets the links to the play by play tables for week 1 of the 2022 season
-print(getWeekPlayByPlayLinks("https://www.d3football.com/scoreboard/2022/composite?view=1"))
+print(getWeekDriveSummaryLinks("https://www.d3football.com/scoreboard/2022/composite?view=1"))
 ```
-

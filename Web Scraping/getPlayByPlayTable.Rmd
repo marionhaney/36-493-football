@@ -26,6 +26,289 @@ DEFAULT: wantedTeam = "Carnegie Mellon"
 multiple weeks for ONE team
 
 ```{r}
+mapAbbreviations = function(homeTeam, awayTeam, Abb1, Abb2, currTeam, currAbb, opponentSide = TRUE) {
+  # home team, scored from opponent's side
+  if ((currTeam == homeTeam | str_detect(tolower(currTeam), tolower(homeTeam)) | 
+       str_detect(tolower(homeTeam), tolower(currTeam))) & opponentSide) {
+    if (currAbb == Abb1) {
+      homeAbb = Abb2
+      awayAbb = Abb1
+    }
+    else {
+      homeAbb = Abb1
+      awayAbb = Abb2
+    }
+  }
+  # home team, scored from own side
+  else if ((currTeam == homeTeam | str_detect(tolower(currTeam), tolower(homeTeam)) | 
+       str_detect(tolower(homeTeam), tolower(currTeam))) & !opponentSide) {
+    if (currAbb == Abb1) {
+      homeAbb = Abb1
+      awayAbb = Abb2
+    }
+    else {
+      homeAbb = Abb2
+      awayAbb = Abb1
+    }
+  }
+  # away team, scored from opponent's side
+  else if ((currTeam == awayTeam | str_detect(tolower(currTeam), tolower(awayTeam)) | 
+       str_detect(tolower(awayTeam), tolower(currTeam))) & opponentSide) {
+    if (currAbb == Abb1) {
+      homeAbb = Abb1
+      awayAbb = Abb2
+    }
+    else {
+      homeAbb = Abb2
+      awayAbb = Abb1
+    }
+  }
+  # away team, scored from own side
+  else {# if ((currTeam == awayTeam | str_detect(tolower(currTeam), tolower(awayTeam)) | 
+       #str_detect(tolower(awayTeam), tolower(currTeam))) & !opponentSide) {
+    if (currAbb == Abb1) {
+      homeAbb = Abb2
+      awayAbb = Abb1
+    }
+    else {
+      homeAbb = Abb1
+      awayAbb = Abb2
+    }
+  }
+  return(c(homeAbb = homeAbb, awayAbb = awayAbb))
+}
+```
+
+```{r}
+findNearestDriveStart = function(drive_start_idx, scoring_play_idx) {
+  drive_idx = 1
+  scoring_idx = 1
+  result = rep(0, length(scoring_play_idx) - 1)
+  while (scoring_idx < length(scoring_play_idx) - 1) {
+    if (drive_start_idx[drive_idx] < scoring_play_idx[scoring_idx]) {
+      result[scoring_idx] = drive_idx
+      drive_idx = drive_idx + 1
+    }
+    else {
+      scoring_idx = scoring_idx + 1
+    }
+  }
+  return(drive_start_idx[result])
+}
+```
+
+```{r}
+getPlayByPlayTable = function(pbp_links, ds_links, bigBadTable, wantedTeams = c("Carnegie Mellon")) {
+  tryCatch(
+    {
+      for (i in 1:length(pbp_links)) {
+        
+        # ----------------- Extract Data in table format ----------------------------
+        
+        # play by play of game
+        gameSeries = read_html(pbp_links[i], as.data.frame = TRUE, stringsAsFactors = TRUE)
+        pbp = gameSeries %>% html_nodes("table") %>% .[[3]]
+        # play by play as table
+        game = pbp %>% html_table(fill = TRUE)
+        colnames(game) = c("Situation", "Play")
+        #print(game)
+        
+        # drive summary of game
+        gameSummary = read_html(ds_links[i], as.data.frame = TRUE, stringsAsFactors = TRUE)
+        ds = gameSummary %>% html_nodes("table") %>% .[[3]]
+        # drive summary as table
+        drive_sum = ds %>% html_table(fill = TRUE)
+        colnames(drive_sum) = c("Team", "QTR", "Start", "Poss.", "Began", "Plays", "Yards", "Result")
+        #print(drive_sum)
+        
+        # ------------------- Gather Information ------------------------------------
+        
+        # getting teams
+        #awayInfo = gameSeries %>% html_nodes("td") %>% .[[2]] %>% html_text()
+        #awayInfo = unlist(str_extract_all(awayInfo, "[^\n\r\t]"))
+        #awayInfo = str_c(awayInfo, collapse = "")
+        #awayInfo = unlist(str_split(awayInfo, "   +"))
+        #awayTeam = awayInfo[2]
+        #awayTeamScore = awayInfo[3]
+        #homeInfo = gameSeries %>% html_nodes("td") %>% .[[3]] %>% html_text()
+        #homeInfo = unlist(str_extract_all(homeInfo, "[^\n\r\t]"))
+        #homeInfo = str_c(homeInfo, collapse = "")
+        #homeInfo = unlist(str_split(homeInfo, "   +"))
+        #homeTeam = homeInfo[2]
+        #homeTeamScore = homeInfo[3]
+        
+        # only the wanted teams
+        #if (!(homeTeam %in% wantedTeams || awayTeam %in% wantedTeams)) {
+        #  next
+        #}
+        
+        # getting teams, location, date, time
+        setting = gameSeries %>% html_nodes("td") %>% .[[1]] %>% html_text()
+        setting = unlist(str_extract_all(setting, "[^\n\r\t]"))
+        setting = str_c(setting, collapse = "")
+        setting = unlist(str_split(setting, "  "))
+        teamsLocation = setting[2]
+        teamsLocation = unlist(str_split(teamsLocation, " - "))
+        teams = teamsLocation[1]
+        teams = unlist(str_split(teams, " at "))
+        awayTeam = trimws(teams[1], which = "left")
+        homeTeam = teams[2]
+        location = teamsLocation[2]
+        dateTime = setting[3]
+        dateTime = unlist(str_split(dateTime, " - "))
+        date = dateTime[1]
+        time = dateTime[2]
+        
+        # only the wanted teams
+        if (!(homeTeam %in% wantedTeams || awayTeam %in% wantedTeams)) {
+          next
+        }
+        
+        # getting abbreviations for the teams
+        awayAbb = gsub(".*at (.+)", "\\1", game[3, ]$Situation)
+        awayAbb = unlist(str_extract_all(awayAbb, "[[:alpha:]]"))
+        awayAbb = str_c(awayAbb, collapse = "")
+        homeAbbFound = FALSE
+        index = 4
+        while (!homeAbbFound) {
+          startOfGame = game[index,]
+          if (grepl("[1-4][(st)|(nd)|(rd)|(th)]", substr(startOfGame$Situation, 1, 3))) {
+            homeAbb = gsub(".*at (.+)", "\\1", startOfGame$Situation)
+            homeAbb = unlist(str_extract_all(homeAbb, "[[:alpha:]]"))
+            homeAbb = str_c(homeAbb, collapse = "")
+            if (homeAbb != awayAbb) {
+              homeAbbFound = TRUE
+            }
+          }
+          index = index + 1
+        }
+        
+        # Verify home and away abbreviations are correct by finding a scoring play under 50 yards and seeing if abbreviations match up
+        Abb1 = awayAbb
+        Abb2 = homeAbb
+        
+        
+        scoringPlays = c("TD", "FG", "SAF")
+        scoringDrives = subset(drive_sum, Result %in% scoringPlays)
+        scoringPBP = subset(game, str_detect(tolower(Play), "touchdown|field goal|safety"))
+        
+        pbpscoringplays = intersect(which(str_detect(tolower(game$Play), "touchdown|field goal|safety")),
+                                which(!str_detect(tolower(game$Play), "interception|fumble|intercepted|fumbled")))
+        
+        pbppossesplays = which(str_detect(game$Situation, "[0-1][0-9]:[0-5][0-9]") & !str_detect(game$Situation, "elapsed") & game$Situation == game$Play) + 1
+        
+        starts = findNearestDriveStart(pbppossesplays, pbpscoringplays)
+        
+        scoringAbbFound = FALSE
+        
+        for (j in 1:nrow(scoringDrives)) {
+          drive = scoringDrives[j, ]
+          # check same input on drive summary and pbp
+          pbp_found_abb = gsub(".*at (.+)", "\\1", game[starts[j], ]$Situation)
+          pbp_found_abb = str_trim(pbp_found_abb, "both")
+          #pbp_found_abb = unlist(str_extract_all(pbp_found_abb, "[[:alpha:]]"))
+          #pbp_found_abb = str_c(pbp_found_abb, collapse = "")
+          
+          if (!is.na(pbp_found_abb) & drive$Began != pbp_found_abb) {
+            next
+          }
+          
+          foundAbb = unlist(str_extract_all(drive$Began, "[[:alpha:]]"))
+          foundAbb = str_c(foundAbb, collapse = "")
+          # Touchdown
+          if (drive$Result == "TD") {
+            if (drive$Yards < 50) {
+              abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = TRUE)
+              homeAbb = abbs["homeAbb"]
+              awayAbb = abbs["awayAbb"]
+              scoringAbbFound = TRUE
+            }
+            else if (drive$Yards > 50) {
+              abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = FALSE)
+              homeAbb = abbs["homeAbb"]
+              awayAbb = abbs["awayAbb"]
+              scoringAbbFound = TRUE
+            }
+          }
+          # Field Goal
+          else if (drive$Result == "FG") {
+            if (drive$Yards > 50) {
+              abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = FALSE)
+              homeAbb = abbs["homeAbb"]
+              awayAbb = abbs["awayAbb"]
+              scoringAbbFound = TRUE
+            }
+            else {
+              foundAbbEnding = gsub(".*at (.+)", "\\1", game[pbpscoringplays[j], ]$Situation)
+              foundAbbEnding = str_trim(foundAbbEnding, "both")
+              foundAbbEnding = unlist(str_extract_all(foundAbbEnding, "[[:alpha:]]"))
+              foundAbbEnding = str_c(foundAbbEnding, collapse = "")
+              if (foundAbb == foundAbbEnding) {
+                abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = TRUE)
+                homeAbb = abbs["homeAbb"]
+                awayAbb = abbs["awayAbb"]
+                scoringAbbFound = TRUE
+              }
+              else if (foundAbb != foundAbbEnding) {
+                abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = FALSE)
+                homeAbb = abbs["homeAbb"]
+                awayAbb = abbs["awayAbb"]
+                scoringAbbFound = TRUE
+              }
+            }
+          }
+          # Safety
+          else {# if (drive$Result == "SAF") {
+            if (drive$Yards > -50) {
+              abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = FALSE)
+              homeAbb = abbs["homeAbb"]
+              awayAbb = abbs["awayAbb"]
+              scoringAbbFound = TRUE
+            }
+            else if (drive$Yards < -50) {
+              abbs = mapAbbreviations(homeTeam, awayTeam, Abb1, Abb2, drive$Team, foundAbb, opponentSide = TRUE)
+              homeAbb = abbs["homeAbb"]
+              awayAbb = abbs["awayAbb"]
+              scoringAbbFound = TRUE
+            }
+          }
+          
+          # Found Abbreviations, break out of loop
+          if (scoringAbbFound) {
+            break
+          }
+        }
+        
+        # ------------------- Call Play by Play Function -----------------------------
+        
+        playByPlay = getGamePlayByPlay(game, date, time, location, homeTeam, homeAbb, awayTeam, awayAbb)
+        if (is.null(bigBadTable)) {
+          bigBadTable = playByPlay
+        }
+        else {
+          bigBadTable = rbind(bigBadTable, playByPlay)
+        }
+      }
+      return(bigBadTable)
+    },
+    error=function(e) {
+      message('An Error Occurred')
+      print(e)
+      print("Function = weekPlayByPlayTable")
+      return(NA)
+    }#,
+    #warning=function(w) {
+    #  message('A Warning Occurred')
+    #  print(w)
+    #  print("Function = weekPlayByPlayTable")
+    #  return(NA)
+    #}
+  )
+}
+```
+
+
+```{r, eval = FALSE}
 getPlayByPlayTable = function(links, bigBadTable, wantedTeams = c("Carnegie Mellon")) {
   tryCatch(
     {
@@ -273,11 +556,14 @@ Testing
 
 seasonLinks = getSeasonLinks(2022)
 playByPlayLinks = c()
+driveSummaryLinks = c()
 for (wk in seasonLinks) {
- wkLinks = getWeekPlayByPlayLinks(wk)
- playByPlayLinks = append(playByPlayLinks, wkLinks)
+ weekPBPLinks = getWeekPlayByPlayLinks(wk)
+ weekDSLinks = getWeekDriveSummaryLinks(wk)
+ playByPlayLinks = append(playByPlayLinks, weekPBPLinks)
+ driveSummaryLinks = append(driveSummaryLinks, weekDSLinks)
 }
-df = getPlayByPlayTable(playByPlayLinks, bigBadTable = NULL)
+df = getPlayByPlayTable(playByPlayLinks, driveSummaryLinks, bigBadTable = NULL)
 ```
 ```{r}
 write.csv(df, "CMU-2022-pbp3.csv", row.names=FALSE)
