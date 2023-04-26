@@ -18,8 +18,8 @@ require(caret)
 
 Load in data
 ```{r}
-df <- read.csv("PAC-2022-Cleaned-pbp.csv")
-cmu.df <- read.csv("PAC-2022-Cleaned-pbp.csv")
+df <- read.csv("PAC-2022-Cleaned-pbp2.csv")
+cmu.df <- read.csv("PAC-2022-Cleaned-pbp2.csv") # to subset later
 ```
 
 Reorder the factors of Next_Score_Half
@@ -48,7 +48,7 @@ df$game.ID <- paste(df$Date, df$Home.Team.Abbreviation, "x", df$Away.Team.Abbrev
 
 # fold
 set.seed(123)
-rand_vals <- sample(1:5, 7787, replace=TRUE)
+rand_vals <- sample(1:5, nrow(df), replace=TRUE)
 df$fold <- rand_vals
 ```
 
@@ -162,7 +162,7 @@ df <- cbind(df, base_ep_preds)
 EP <- rep(0,7787)
 # multiply by point values
 for (ii in 1:nrow(df)) {
-  EP[[ii]] = sum(c(df[ii,38]*0, df[ii,39]*3, df[ii,40]*-3, df[ii,41]*7, df[ii,42]*-7))
+  EP[[ii]] = sum(c(df[ii,43]*0, df[ii,44]*3, df[ii,45]*-3, df[ii,46]*7, df[ii,47]*-7))
 }
 df$EP <- EP
 ```
@@ -177,6 +177,27 @@ df <- df %>%
                   lead(EP) - EP,
                   -lead(EP) - EP)) %>%
   ungroup()
+```
+
+Making EPA for scoring plays the score added - EP:
+```{r}
+for (i in 1:(nrow(df)-1)) {
+  if (!df[[i, "Points.Scored."]]) next
+  else {
+    if (df[[i, "Touchdown."]]) {
+      if (df[[i,"Turnover."]]) {
+        # defensive touchdown
+        df[i, "EPA"] = -7 - df[i, "EP"]
+      } else {
+        # offensive touchdown
+        df[i, "EPA"] = 7 - df[i, "EP"]
+      }
+    } else if (df[[i, "Field.Goal."]]) {
+      # offensive field goal
+      df[i, "EPA"] = 3 - df[i, "EP"]
+    }
+  }
+}
 ```
 
 
@@ -271,6 +292,7 @@ cmu.df <- cmu.df %>%
                   -lead(EP) - EP)) %>%
   ungroup()
 ```
+
 
 Save the EP/EPA columns to the df
 ```{r}
