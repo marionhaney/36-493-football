@@ -38,10 +38,17 @@ data$Distance.to.First.Down = as.numeric(data$Distance.to.First.Down)
 #                    ifelse(data$Down == 4 & check.numeric(data$Net.Yards) & as.numeric(data$Net.Yards) > data$Distance.to.First.Down2, 1,
 #                            0))))
 
+#data = as.data.frame(data %>% 
+#                    group_by(Team.Possession, Drive.Number) %>% 
+#                    mutate(Efficient = ifelse(Down == 1 & Net.Yards >= 4, 1, 
+#                                       ifelse(Down == 2 & Net.Yards > Distance.to.First.Down2 / 2, 1, 
+#                                       ifelse(Down == 3 & lead(Down) == 1 & Team.Possession == lead(Team.Possession), 1, 
+#                                       ifelse(Down == 4 & lead(Down) == 1 & !Punt. & Team.Possession == lead(Team.Possession), 1, 0))))))
+
 data = as.data.frame(data %>% 
                     group_by(Team.Possession, Drive.Number) %>% 
                     mutate(Efficient = ifelse(Down == 1 & Net.Yards >= 4, 1, 
-                                       ifelse(Down == 2 & Net.Yards > Distance.to.First.Down2 / 2, 1, 
+                                       ifelse(Down == 2 & Net.Yards > Net.Yards / 2, 1, 
                                        ifelse(Down == 3 & lead(Down) == 1 & Team.Possession == lead(Team.Possession), 1, 
                                        ifelse(Down == 4 & lead(Down) == 1 & !Punt. & Team.Possession == lead(Team.Possession), 1, 0))))))
 
@@ -111,10 +118,18 @@ ggplot(PAC_summary, aes(x = Down, y = prop_efficient,
                          fill = Down)) +
   geom_bar(stat = "identity", aes(fill = Down)) +
   geom_errorbar(width = .2) +
+  facet_wrap(vars(Team.Possession)) +
   scale_y_continuous(labels = scales::percent) +
   geom_col(position = "dodge") +
   geom_text(aes(label = scales::percent(round(prop_efficient, 2))), vjust = 1.5) +
   labs(title = "Bar Plot of PAC Efficiency by Down", y = "Percentage (%)")
+```
+
+```{r}
+rankedEfficiency = data %>% group_by(Team.Possession) %>% summarize(prop_efficient = mean(Efficient, na.rm = TRUE),
+                      n_plays = n())
+rankedEfficiency[order(rankedEfficiency$prop_efficient, decreasing = TRUE), ]
+
 ```
 
 

@@ -12,7 +12,7 @@ require(ggplot2)
 
 ```{r}
 #data = read.csv("Web\\Scraping/PAC-20220-pbp.csv")
-data = read.csv("./PAC-2022-pbp.csv")
+data = read.csv("./PAC-2022-cleaned-pbp-wEPA.csv")
 ```
 
 ```{r}
@@ -84,9 +84,10 @@ ggplot(data, aes(x = Distance.to.Touchdown, y = EP, color = Down)) +
   scale_x_reverse() +
   geom_hline(yintercept = 0) +
   geom_vline(xintercept = 20, color = "red", lty = 2) +
-  labs(title = "Expected Points Chart of PAC Teams", x = "Distance to Opponent's Touchdown",
+  labs(title = "Change in Expected Points by Down (PAC)", x = "Distance to Opponent's Touchdown",
        y = "Expected Points (EP)") +
-  theme_bw()
+  theme_bw() +
+  ylim(-3.5, 7.5)
 ```
 
 ```{r}
@@ -105,15 +106,24 @@ ggplot(data, aes(x = Distance.to.Touchdown)) +
 data %>%
   select(Distance.to.Touchdown, Touchdown_Prob, Field_Goal_Prob) %>% 
   pivot_longer(cols = c(Touchdown_Prob, Field_Goal_Prob)) %>%
-  ggplot(aes(x = Distance.to.Touchdown, y = value, color = name)) +
+  ggplot(aes(x = Distance.to.Touchdown, y = value,color = fct_relevel(name, "Touchdown_Prob", "Field_Goal_Prob"))) +
   geom_smooth() +
   scale_x_reverse() +
-  labs(title = "Probability of Scoring Outcome", x = "Distance to Opponent's Touchdown",
+  labs(title = "Probability of Scoring Outcome (PAC)", x = "Distance to Opponent's Touchdown",
        y = "Probability of Outcome Occuring", color = "Scoring Outcome") +
-  scale_color_hue(labels = c('Field Goal Percentage', 'Touchdown Percentage')) +
+  scale_color_hue(labels = c("Touchdown Percentage", "Field Goal Percentage")) +
   scale_y_continuous(labels = scales::percent) +
   theme_bw()
 ```
+
+```{r}
+data %>% 
+  group_by(Down) %>% 
+  summarize(mean = mean(EP, na.rm = TRUE), std.dev = sd(EP, na.rm = TRUE),
+            median = median(EP, na.rm = TRUE)) %>% 
+  round(2)
+```
+
 
 ```{r}
 # Line Graph
