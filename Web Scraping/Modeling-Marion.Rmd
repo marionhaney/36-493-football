@@ -154,7 +154,7 @@ base_ep_preds <- rename(base_ep_preds,
 ```
 
 ```{r}
-# add to df
+# add to dftg
 df <- cbind(df, base_ep_preds)
 ```
 
@@ -178,6 +178,7 @@ df <- df %>%
                   -lead(EP) - EP)) %>%
   ungroup()
 ```
+
 
 Save the EP/EPA columns to the df
 ```{r}
