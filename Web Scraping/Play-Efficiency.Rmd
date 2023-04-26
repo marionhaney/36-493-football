@@ -126,6 +126,11 @@ ggplot(PAC_summary, aes(x = Down, y = prop_efficient,
 ```
 
 ```{r}
+if (data$Team.Possession %in% c("Wash. & Jeff.", "W&J", "Washington and Jefferson")) {
+  data$Team.Possession = "W&J"
+}
+
+
 rankedEfficiency = data %>% group_by(Team.Possession) %>% summarize(prop_efficient = mean(Efficient, na.rm = TRUE),
                       n_plays = n())
 rankedEfficiency[order(rankedEfficiency$prop_efficient, decreasing = TRUE), ]

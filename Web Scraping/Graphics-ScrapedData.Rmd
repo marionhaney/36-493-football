@@ -104,15 +104,19 @@ ggplot(data, aes(x = Distance.to.Touchdown)) +
 ```{r}
 # Line Graph
 data %>%
-  select(Distance.to.Touchdown, Touchdown_Prob, Field_Goal_Prob) %>% 
-  pivot_longer(cols = c(Touchdown_Prob, Field_Goal_Prob)) %>%
-  ggplot(aes(x = Distance.to.Touchdown, y = value,color = fct_relevel(name, "Touchdown_Prob", "Field_Goal_Prob"))) +
+  select(Distance.to.Touchdown, Touchdown_Prob, Field_Goal_Prob, 
+         No_Score_Prob, Opp_Field_Goal_Prob, Opp_Touchdown_Prob) %>% 
+  pivot_longer(cols = c(Touchdown_Prob, Field_Goal_Prob, Opp_Touchdown_Prob, 
+                        Opp_Field_Goal_Prob, No_Score_Prob)) %>%
+  ggplot(aes(x = Distance.to.Touchdown, y = value, 
+             color = fct_relevel(name, "Opp_Touchdown_Prob", "Opp_Field_Goal_Prob", 
+                                 "No_Score_Prob", "Field_Goal_Prob", "Touchdown_Prob"))) +
   geom_smooth() +
   scale_x_reverse() +
   labs(title = "Probability of Scoring Outcome (PAC)", x = "Distance to Opponent's Touchdown",
        y = "Probability of Outcome Occuring", color = "Scoring Outcome") +
-  scale_color_hue(labels = c("Touchdown Percentage", "Field Goal Percentage")) +
-  scale_y_continuous(labels = scales::percent) +
+  #scale_color_hue(labels = c("Touchdown Percentage", "Field Goal Percentage")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
   theme_bw()
 ```
 
