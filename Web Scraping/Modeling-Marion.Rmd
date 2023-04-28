@@ -120,11 +120,11 @@ ep_cv_loso_calibration_results %>%
   mutate(next_score_type = fct_relevel(next_score_type, "No_Score", "Field_Goal", 
                                        "Opp_Field_Goal", "Touchdown", "Opp_Touchdown"),
   next_score_type = fct_recode(next_score_type,
-                               "No_Score (0)" = "No_Score", 
-                               "Field_Goal (3)" = "Field_Goal",
-                               "Opp_Field_Goal (-3)" = "Opp_Field_Goal",
+                               "No Score (0)" = "No_Score", 
+                               "Field Goal (3)" = "Field_Goal",
+                               "Opponent Field Goal (-3)" = "Opp_Field_Goal",
                                "Touchdown (7)" = "Touchdown",
-                               "Opp_Touchdown (-7)" = "Opp_Touchdown")) %>%
+                               "Opponent Touchdown (-7)" = "Opp_Touchdown")) %>%
   ggplot(aes(x = bin_pred_prob, y = bin_actual_prob)) +
   geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed") +
   geom_smooth(se = FALSE) + 
@@ -135,10 +135,11 @@ ep_cv_loso_calibration_results %>%
   labs(size = "Number of plays", x = "Estimated next score probability", 
        y = "Observed next score probability") + 
   theme_bw() + 
+  ggtitle("Calibration for EP Model Predictions") +
   theme(strip.background = element_blank(), 
         axis.text.x = element_text(angle = 90), 
-        legend.position = c(1, .05), legend.justification = c(1, 0)) +
-  facet_wrap(~ next_score_type, ncol = 4)
+        legend.position = c(0.95, -0.05), legend.justification = c(1, 0)) +
+  facet_wrap(~ next_score_type, ncol = 3)
 ```
 
 Expected Points Column
