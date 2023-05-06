@@ -1,0 +1,619 @@
+---
+title: "Data Cleaning Full"
+author: "Eli Cohen"
+date: "2023-05-06"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nnet)
+```
+
+Data Initialization
+
+```{r}
+## Drop KOs, Extra Pts, 2 Pt conversions, Penalties, and Timeouts
+
+init.data.full = read.csv("Initial_Play_-_By_-_Play.csv", na=c(""))
+KO.plays = c("KO", "KO Rec", "Onside Kick Rec")
+```
+
+```{r}
+## Fixing the Extra Points labeled as FGs
+
+init.data.full[1442, "PLAY.TYPE"] = "Extra Pt."
+init.data.full[1556, "PLAY.TYPE"] = "Extra Pt."
+init.data.full[1975, "PLAY.TYPE"] = "Extra Pt."
+init.data.full[1994, "PLAY.TYPE"] = "Extra Pt."
+
+extra.pt.rows = which(init.data.full$PLAY.TYPE == "Extra Pt." |
+                        init.data.full$PLAY.TYPE == "Extra Pt. Block")
+KO.rows = which(init.data.full$PLAY.TYPE %in% KO.plays)
+two.pt.rows = which(init.data.full$PLAY.TYPE == "2 Pt." | 
+                      init.data.full$PLAY.TYPE == "2 Pt. Defend")
+penalty.rows = which(init.data.full$RESULT == "Penalty")
+timeout.rows = which(init.data.full$RESULT == "Timeout")
+
+rem.rows = c(extra.pt.rows, KO.rows, penalty.rows, two.pt.rows, timeout.rows)
+init.data = init.data.full[-rem.rows, ]
+```
+
+```{r}
+# Create possession team column
+
+  # fill in missing values that shouldn't be missing
+init.data[945, "ODK"] = "D"
+init.data[955, "ODK"] = "D"
+init.data[980, "ODK"] = "O"
+init.data[1009, "ODK"] = "D"
+init.data[1019, "ODK"] = "D"
+init.data[1025, "ODK"] = "D"
+init.data[1044, "ODK"] = "O"
+init.data[1093, "ODK"] = "D"
+init.data[1291, "ODK"] = "O"
+init.data[1317, "ODK"] = "D"
+init.data[1368, "ODK"] = "O"
+init.data[1395, "ODK"] = "D"
+
+init.data$pos.team = ifelse(init.data$ODK == "O", "CMU", "Opp")
+
+for (i in 1:nrow(init.data)) {
+  if (init.data[i, "ODK"] == "K") {
+    init.data[i, "pos.team"] = init.data[i - 1, "pos.team"]
+  }
+}
+```
+
+```{r}
+# Rename variables for convenience
+
+names(init.data) = tolower(names(init.data))
+names(init.data)[1] = "play"
+```
+
+```{r}
+### ROUNDING ERROR FIX WAS BUGGED, TO DO FIX ###
+
+## Fix rounding error for distance
+
+# for (i in 2:nrow(init.data)) {
+#   if (init.data$dn[i]==1 | is.na(init.data$dn[i])) { next }
+#   init.data$dist[i] = init.data$dist[i-1] - init.data$gn.ls[i-1]
+# }
+```
+
+Cleaning
+
+```{r}
+## Create game ID
+
+first.plays = which(init.data$play==2)
+init.data$game = length(first.plays)
+for (i in 1:(length(first.plays)-1)) {
+  first = first.plays[i]
+  last = first.plays[i+1]-1
+  init.data$game[first:last] = i
+}
+```
+
+```{r}
+## Turn yard line into yards to end zone
+
+negative.yds = init.data$yard.ln < 0
+na.yds = is.na(negative.yds)
+negative.yds[na.yds] = FALSE
+init.data[negative.yds, "yard.ln"] = init.data[negative.yds, "yard.ln"] + 100
+names(init.data)[5] = "yds.to.endzone"
+```
+
+```{r}
+# Create drive ID
+
+num.games = max(init.data$game)
+
+  # Indicator for defensive score
+init.data$def.score = str_detect(init.data$result, "Def")
+init.data[is.na(init.data$def.score), "def.score"] = FALSE
+
+for (game.ind in 1:num.games) {
+  
+  ind.game = init.data[init.data$game == game.ind, ]
+  drive = 1
+  
+  for (j in 1:(nrow(ind.game) - 1)) {
+    
+    global.ind = which(init.data$game == game.ind & 
+                         init.data$play == ind.game[j, "play"])
+    
+    cur.pos = ind.game[j, "pos.team"]
+    next.pos = ind.game[j + 1, "pos.team"]
+    
+    init.data[global.ind, "drive"] = drive
+    
+    if ((cur.pos != next.pos) | (ind.game[j, "def.score"])) {
+      drive = drive + 1
+    }
+    
+  }
+  
+  init.data[global.ind + 1, "drive"] = drive
+  
+}
+```
+
+```{r}
+# Create drive outcome (Unused except with EDA)
+
+last.plays = which(!mapply(identical, init.data$drive, lead(init.data$drive, default=0)) & 
+                     !is.na(init.data$drive))
+last.play.type = init.data$play.type[last.plays]
+down = init.data$dn[last.plays]
+result = init.data$result[last.plays]
+last.outcomes = rep(NA, length(last.plays))
+
+for (i in 1:length(last.plays)) {
+  
+  outcome = NA
+  playtype = last.play.type[i]
+  
+  if (is.na(playtype)) {next} # NEED TO FIX
+  
+  res = result[i]
+  
+  if (grepl("Def TD", res)) {outcome = "TD Against"}
+  
+  else if (playtype=="Pass" | playtype=="Run") {
+    
+    if (grepl("TD", res)) {outcome = "TD For"}
+    
+    else if (res %in% c("Fumble", "Interception", "Sack, Fumble")) {outcome = res}
+    
+    else if (is.na(down[i])) {next} # NEED TO FIX
+    
+    else if (down[i]==4) {outcome = "Turnover on Downs"}
+    
+    else {outcome = "Time Expired"} }
+  
+  else if (grepl("FG", playtype)) {outcome = "FG"}
+  
+  else if (grepl("Punt", playtype)) {outcome = "Punt"}
+  
+  last.outcomes[i] = outcome
+  
+}
+
+offset = 0
+init.data$drive.outcome = NA
+init.data$drive.outcome[last.plays] = last.outcomes
+
+for (i in 1:max(init.data$game)) {
+  
+  ind = which(init.data$game==i)
+  init.data$drive.outcome[ind] = last.outcomes[init.data$drive[ind] + offset]
+  offset = offset + max(init.data$drive[ind], na.rm=TRUE)
+  
+}
+```
+
+```{r}
+# Create next score
+
+FG.score = c("FG", "FG Block")
+
+  # Manually input missing FG good/no good values
+FG.rows = init.data[init.data$play.type %in% FG.score, ]
+FG.rows[c(5, 6, 9, 20, 21, 22), "result"] = "Good"
+FG.rows[c(8, 23, 24, 25, 26, 28, 29), "result"] = "No Good"
+  #Index 29 was a muffed FG attempt
+init.data[init.data$play.type %in% FG.score, "result"] = FG.rows$result
+
+init.data$TD.score = str_detect(init.data$result, "TD")
+init.data[is.na(init.data$TD.score), "TD.score"] = F 
+init.data$FG = str_detect(init.data$play.type, "FG")
+init.data[is.na(init.data$FG), "FG"] = F 
+init.data$FG.score = ((init.data$FG == T) & (init.data$result == "Good"))
+init.data$safety.score = F # implement once there is data with safeties
+
+init.data$sp = ifelse(init.data$TD.score + init.data$FG.score + init.data$safety.score >= 1, 
+                      T,
+                      F)
+
+find.next.score.game = function(data) { #WRT POSESSION TEAM
+  
+  # Which rows are the scoring plays:
+  score.plays = which(data$sp)
+  
+  find.next.score = function(play.ind, score.plays.inds, data) {
+    
+    next.score.ind = score.plays.inds[which(score.plays.inds >= play.ind)[1]]
+    
+    if(is.na(next.score.ind)) {
+      
+      score.type = "No Score"
+      
+    } else {
+      
+      #TDs:
+      if (data$TD.score[next.score.ind]) {
+        
+        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
+          
+          if (data[next.score.ind, "def.score"]) { #Def TD, against team in pos
+            
+            score.type = "TD Against"
+            
+          } else { #Offensive TD, for team in pos
+            
+            score.type = "TD For"
+            
+          }
+          
+        } else {
+          
+          if (data[next.score.ind, "def.score"]) { #Def TD, for team in pos.
+            
+            score.type = "TD For"
+            
+          } else { #Offensive TD, against team in pos.
+            
+            score.type = "TD Against"
+            
+          }
+          
+        }
+
+        #FGs
+      } else if(data$FG.score[next.score.ind]) {
+        
+        if (identical(data[play.ind, "pos.team"], data[next.score.ind, "pos.team"])) {
+          
+          score.type = "FG For"
+          
+          # Opponent made FG
+        } else {
+          
+          score.type = "FG Against"
+          
+        }
+        
+        #Safeties
+      } else if(data$safety.score[next.score.ind]) {
+        
+        score.type = "Safety" #Handle logic later
+        
+        #Error
+      } else {
+        
+        score.type = NA
+        
+      }
+    }
+    
+    return(data.frame(next.score = score.type))
+    
+  }
+  
+  res = lapply(1:nrow(data), find.next.score, 
+               score.plays.inds = score.plays, data = data) %>% 
+    bind_rows()
+  
+  return(res)
+}
+
+next.score = map_dfr(unique(init.data$game), 
+        function(x) {
+          init.data %>% 
+            filter(game == x) %>% 
+            find.next.score.game()
+        })
+
+init.data$next.score = next.score[, 1]
+```
+
+EDA
+
+```{r}
+sub.data = init.data[, c("game", "drive", "play", "pos.team", "dn", "dist", "gn.ls",
+                         "yds.to.endzone", "result", "play.type", 
+                         "drive.outcome", "next.score", "sp", "TD.score", "FG.score")]
+
+drive.data = sub.data %>% 
+  group_by(drive) %>% 
+  slice(1) %>% 
+  ungroup()
+```
+
+```{r}
+# Next score distribution by down (removed NA values)
+sub.data[!is.na(sub.data$dn), ] %>% 
+  ggplot(aes(x = fct_relevel(next.score, 
+                             c("TD For", "TD Against", 
+                               "FG For", "FG Against", 
+                               "No Score")), 
+             fill = factor(dn))) +
+  geom_bar() +
+  labs(title = "Play Count for Next Score Events", x = "Scoring Events", 
+       y = "Play Count", fill = "Down") +
+  theme_bw()
+```
+
+```{r}
+# Distribution of yard line filled with next score event at every play
+sub.data %>%
+  ggplot(aes(x = yds.to.endzone, color = next.score)) +
+  geom_density() +
+  labs(title = "Density for Yard Line Filtered by Next Score Event", 
+       x = "Yards to Endzone", y = "Density", fill = "Score Event") +
+  theme_bw()
+```  
+
+```{r}
+drive.data %>% 
+  ggplot(aes(x = fct_relevel(drive.outcome, 
+                             c("TD For", "FG", "Punt", "Interception", 
+                               "Turnover on Downs", "Time Expired")))) +
+  geom_bar() +
+  labs(title = "Drive Counts for Drive Outcomes", x = "Drive Outcome", 
+       y = "Drive Count") +
+  theme_bw()
+```
+
+```{r}
+# Starting yard line of each scoring play
+init.data[init.data$sp, ] %>%
+  ggplot(aes(x = yds.to.endzone)) +
+  geom_histogram(binwidth = 5, color = "white") +
+  labs(title = "Distribution of Yard Line for Scoring Plays", 
+       x = "Yards to Endzone", y = "Play Count", 
+       subtitle = "Binwidth of 5 Yards") +
+  theme_bw()
+```
+
+```{r}
+# Distribution of down
+sub.data %>% 
+  ggplot(aes(x = dn)) +
+  geom_bar() +
+  labs(title = "Play Count of Down", x = "Down", y = "Play Count") +
+  theme_bw()
+```
+
+```{r}
+# Distribution of yards to go
+sub.data %>% 
+  ggplot(aes(x = dist)) +
+  geom_histogram(binwidth = 2, color = "white") +
+  labs(title = "Distribution of Yards to Go", x = "Yards to Go", y = "Play Count",
+       subtitle = "Binwidth of 2 Yards") +
+  theme_bw()
+```
+
+```{r}
+# Distribution of yard line
+sub.data %>% 
+  ggplot(aes(x = yds.to.endzone)) +
+  geom_histogram(binwidth = 5, color = "white") +
+  labs(title = "Distribution of Yard Line", x = "Yards to Endzone", 
+       y = "Play Count", subtitle = "Binwidth of 5 Yards") +
+  theme_bw()
+```
+
+```{r}
+# Distribution of yards to go colored by down
+sub.data %>% 
+  ggplot(aes(x = dist, fill = factor(dn))) +
+  geom_histogram(binwidth = 2, color = "black") +
+  labs(title = "Distribution of Yards to Go Colored by Down", x = "Yards to Go",
+       y = "Play Count", fill = "Down", subtitle = "Binwidth of 2 Yards") +
+  theme_bw()
+```
+
+```{r}
+# Density of yards to go colored by down, faceted by next score
+sub.data %>% 
+  ggplot(aes(x = dist, color = factor(dn))) +
+  geom_density() +
+  facet_wrap(next.score ~ ., nrow = 2) +
+  labs("Density of Yards to Go, Colored by Down, Faceted by Next Score",
+       x = "Yards to Go", y = "Density", fill = "Down") +
+  theme_bw()
+```
+
+Modeling
+
+```{r}
+# Create probability model and calculate expected points
+
+EPA.model = multinom(fct_relevel(next.score, c("No Score", "TD For", 
+                                               "TD Against", "FG For", 
+                                               "FG Against")) ~ factor(dn) + 
+                       log(dist) + yds.to.endzone + factor(dn):log(dist), 
+                     data = sub.data)
+summary(EPA.model)
+
+probs = EPA.model$fitted.values
+EP = rep(0, nrow(probs))
+for (i in 1:nrow(probs)) { # Calculate expected points from probabilities
+  EP[i] = 7*probs[i, 2] - 7*probs[i, 3] + 3*probs[i, 4] - 3*probs[i, 5]
+}
+
+NA.rows = which(is.na(sub.data$dn) | is.na(sub.data$dist) | is.na(sub.data$yds.to.endzone))
+EPA.data = sub.data[-NA.rows, ]
+EPA.data$expected.pts = EP
+```
+
+```{r}
+# Calculate expected points added
+
+probs = as.data.frame(probs)
+names(probs)[1] = "No Score"
+names(probs)[2] = "TD For"
+names(probs)[3] = "TD Against"
+names(probs)[4] = "FG For"
+names(probs)[5] = "FG Against"
+EPA.data[, names(probs)] = probs
+
+EPA.data = EPA.data %>% 
+  group_by(game) %>% 
+  mutate(epa = ifelse(pos.team == lead(pos.team),
+                      lead(expected.pts) - expected.pts,
+                      -lead(expected.pts) - expected.pts)) %>% 
+  ungroup
+
+for (i in 1:(nrow(EPA.data)-1)) { # Edit EPA for scoring plays only
+  if (!EPA.data[[i, "sp"]]) next
+  else {
+    
+    if (EPA.data[[i, "TD.score"]]) {
+      
+      if (str_detect(EPA.data[i, "result"], "Def")) {
+        
+        EPA.data[i, "epa"] = -7 - EPA.data[i, "expected.pts"]
+        
+      } else {
+        
+        EPA.data[i, "epa"] = 7 - EPA.data[i, "expected.pts"]
+        
+      }
+      
+    } else if (EPA.data[[i, "FG.score"]]) {
+      
+      EPA.data[i, "epa"] = 3 - EPA.data[i, "expected.pts"]
+      
+    }
+  }
+}
+```
+
+```{r}
+# Create calibration plot for model
+
+EPA.calibration = EPA.data %>%
+  pivot_longer(17:21,
+               names_to = "next.score.type",
+               values_to = "pred.prob") %>%
+  mutate(bin.pred.prob = round(pred.prob / 0.05) * 0.05) %>%
+  group_by(next.score, bin.pred.prob) %>%
+  summarize(n.plays = n(),
+            n.scoring.event = length(which(next.score == next.score.type)),
+            bin.actual.prob = n.scoring.event / n.plays,
+            bin.se = sqrt((bin.actual.prob * (1 - bin.actual.prob)) / n.plays)) %>%
+  ungroup() %>%
+  mutate(bin.upper = pmin(bin.actual.prob + 2*bin.se, 1),
+         bin.lower = pmax(bin.actual.prob - 2*bin.se, 0))
+
+EPA.calibration %>% 
+  mutate(next.score = fct_relevel(next.score, "FG Against", 
+                                       "TD Against", "No Score", "FG For", 
+                                       "TD For"),
+  next.score.type = fct_recode(next.score, 
+                               "-Field Goal (-3)" = "FG Against", 
+                               "-Touchdown (-7)" = "TD Against",
+                               "Field Goal (3)" = "FG For", 
+                               "No Score (0)" = "No Score",
+                               "Touchdown (7)" = "TD For")) %>%
+  ggplot(aes(x = bin.pred.prob, y = bin.actual.prob)) +
+  geom_abline(slope = 1, intercept = 0, color = "black", linetype = "dashed") +
+  geom_smooth(se = FALSE) + 
+  geom_point(aes(size = n.plays)) +
+  geom_errorbar(aes(ymin = bin.lower, ymax = bin.upper)) + #coord_equal() +   
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(size = "Number of plays", x = "Estimated next score probability", 
+       y = "Observed next score probability") + 
+  theme_bw() + 
+  theme(strip.background = element_blank(), 
+        axis.text.x = element_text(angle = 90), 
+        legend.position = c(1, .05), legend.justification = c(1, 0)) +
+  facet_wrap(~ next.score, ncol = 4)
+
+EPA.calibration
+```
+
+Results Visualizations
+
+```{r}
+# View of change in expected points over the course of the field
+EPA.data %>% 
+  ggplot(aes(x = yds.to.endzone, y = expected.pts, color = as.factor(dn))) +
+  geom_smooth() +
+  ylim(-3.5, 7.5) +
+  scale_x_reverse() +
+  geom_vline(xintercept = 20, color = "red", lty = 2) +
+  geom_hline(yintercept = 0) +
+  labs(title = "Change in Expected Points by Down (CMU)", 
+       x = "Distance to Opponent's Endzone", y = "Expected Points (EP)", 
+       color = "Down") +
+  theme_bw()
+```
+
+```{r}
+# View of change in expected points over distance to first down
+EPA.data %>%
+  ggplot(aes(x = dist, y = expected.pts)) +
+  geom_smooth() +
+  scale_x_reverse() +
+  geom_vline(xintercept = 10, color = "red", lty = 2) +
+  geom_hline(yintercept = 0) +
+  labs(title = "How Expected Points Change as a Team Gets Closer to a First Down",
+       x = "Distance to First Down", y = "Expected Points (EP)") +
+  theme_bw()
+```
+
+```{r}
+# Probability of each scoring outcome over the course of the field
+EPA.data %>%
+  select("yds.to.endzone", "TD Against", "FG Against", "No Score", "FG For", "TD For") %>% 
+  pivot_longer(cols = c("TD Against", "FG Against", "No Score", "FG For", "TD For")) %>%
+  ggplot(aes(x = yds.to.endzone, y = value, color = fct_relevel(name, "TD Against", "FG Against", "No Score", "FG For", "TD For"))) +
+  geom_smooth() +
+  scale_x_reverse() +
+  labs(title = "Probability of Scoring Outcome (CMU)", 
+       x = "Distance to Opponent's Endzone",
+       y = "Probability of Outcome Occuring", color = "Scoring Outcome") +
+  scale_color_manual(labels = c("TD Against %", "FG Against %", "No Score %", "FG For %", "TD For %"), 
+                     values = c("red", "darkred", "grey", "darkblue", "blue")) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  theme_bw()
+```
+
+```{r}
+# Summary statistics of expected points by down
+EPA.data %>% 
+  group_by(dn) %>% 
+  summarize(mean = mean(expected.pts), std.dev = sd(expected.pts),
+            median = median(expected.pts)) %>% 
+  round(2)
+```
+
+Efficiency
+
+```{r}
+# Calculate EPA and CMU efficiency
+EPA.data$epa.eff = ifelse(EPA.data$epa > 0, 1, 0)
+EPA.data[is.na(EPA.data$epa.eff), "epa.eff"] = 0
+
+EPA.data = EPA.data %>% 
+  group_by(game, pos.team, drive) %>% 
+  mutate(CMU.eff = ifelse(dn == 1 & gn.ls >= 4, 1,
+                          ifelse(dn == 2 & gn.ls > dist / 2, 1,
+                                 ifelse(dn == 3 & lead(dn) == 1 & 
+                                          pos.team == lead(pos.team), 1,
+                                        ifelse(dn == 4 & lead(dn) == 1 & 
+                                                 !(play.type == "Punt Rec" | 
+                                                     play.type == "Punt") & 
+                                                 pos.team == lead(pos.team), 1, 
+                                               0)))))
+
+EPA.data[is.na(EPA.data$CMU.eff), "CMU.eff"] = 0
+```
+
+```{r}
+# Compare efficiency metrics
+eff.table = table(EPA.data$epa.eff, EPA.data$CMU.eff)
+
+percent.CMU.eff = sum(EPA.data$CMU.eff)/nrow(EPA.data)
+percent.epa.eff = sum(EPA.data$epa.eff)/nrow(EPA.data)
+```
